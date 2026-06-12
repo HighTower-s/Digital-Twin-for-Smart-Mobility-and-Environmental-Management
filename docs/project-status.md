@@ -38,11 +38,11 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] `README.md` with quick start commands
 
 ### Mock Server
-- [ ] `scenarios/normal.js` — 5 cars, 30–50 km/h
-- [ ] `scenarios/congestion.js` — 15 cars, 2–15 km/h
-- [ ] `scenarios/edge.js` — invalid payloads for validation testing
-- [ ] `generator.js` — main runner, posts to `/api/ingest` every 1s
-- [ ] Vehicles move continuously (bounce within road boundary)
+- [x] `scenarios/normal.js` — 5 cars, 30–50 km/h
+- [x] `scenarios/congestion.js` — 15 cars, 2–15 km/h
+- [x] `scenarios/edge.js` — invalid payloads for validation testing
+- [x] `generator.js` — main runner, posts to `/api/ingest` every 1s
+- [x] Vehicles move continuously (bounce within road boundary)
 
 ### Backend
 - [ ] `POST /api/ingest` — receives payload from AI Worker or Mock Server
@@ -144,3 +144,4 @@ Record what was done each session. Newest at top.
 |---|---|---|
 | 2026-06-12 | Created CLAUDE.md, architecture.md, data-contract.md, project-status.md | Create README.md and folder structure |
 | 2026-06-12 | Created README.md, folder structure, all module CLAUDE.md files, docker-compose.yml, infra/db/init.sql | Add .gitignore, then implement Mock Server |
+| 2026-06-12 | Implemented Mock Server: generator.js + 3 scenarios (normal, congestion, edge). All smoke tests pass. | Implement Backend (`POST /api/ingest`, validation, WebSocket, TimescaleDB) |
