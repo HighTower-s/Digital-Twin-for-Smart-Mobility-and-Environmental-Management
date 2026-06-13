@@ -45,12 +45,12 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] Vehicles move continuously (bounce within road boundary)
 
 ### Backend
-- [ ] `POST /api/ingest` — receives payload from AI Worker or Mock Server
-- [ ] Validation layer — rejects invalid payloads with HTTP 400
-- [ ] WebSocket — broadcasts valid payload via `emit("frame")`
-- [ ] TimescaleDB — async log insert (non-blocking)
-- [ ] `GET /health` — health check endpoint
-- [ ] Unit test for `validatePayload()`
+- [x] `POST /api/ingest` — receives payload from AI Worker or Mock Server
+- [x] Validation layer — rejects invalid payloads with HTTP 400
+- [x] WebSocket — broadcasts valid payload via `emit("frame")`
+- [x] TimescaleDB — async log insert (non-blocking)
+- [x] `GET /health` — health check endpoint
+- [x] Unit test for `validatePayload()` — 22 tests, all passing
 
 ### Unity
 - [ ] WebSocket client connects to Backend on startup
@@ -145,3 +145,4 @@ Record what was done each session. Newest at top.
 | 2026-06-12 | Created CLAUDE.md, architecture.md, data-contract.md, project-status.md | Create README.md and folder structure |
 | 2026-06-12 | Created README.md, folder structure, all module CLAUDE.md files, docker-compose.yml, infra/db/init.sql | Add .gitignore, then implement Mock Server |
 | 2026-06-12 | Implemented Mock Server: generator.js + 3 scenarios (normal, congestion, edge). All smoke tests pass. | Implement Backend (`POST /api/ingest`, validation, WebSocket, TimescaleDB) |
+| 2026-06-13 | Implemented Backend: Express + Socket.io, POST /api/ingest, GET /health, validatePayload (22 unit tests), async TimescaleDB logger. tsc --noEmit passes clean. | Connect Mock Server → Backend → Unity (M1 gate) |

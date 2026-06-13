@@ -1,0 +1,46 @@
+# ── Environment ──────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Node.js (backend, mock-server) ───────────────────────────────────────────
+node_modules/
+dist/
+*.js.map
+
+# ── Python (ai-worker) ───────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# ── Unity ────────────────────────────────────────────────────────────────────
+unity/Library/
+unity/Temp/
+unity/Logs/
+unity/obj/
+unity/Build/
+unity/Builds/
+unity/UserSettings/
+unity/*.csproj
+unity/*.sln
+unity/*.suo
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editors ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+infra/db/data/

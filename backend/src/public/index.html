@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Flow — Live Monitor</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+
+    #status-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #f85149;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #status-dot.connected { background: #3fb950; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .card .label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .card .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #58a6ff;
+    }
+
+    .card .sub {
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-top: 4px;
+      word-break: break-all;
+    }
+
+    h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #161b22;
+      color: #8b949e;
+      font-weight: 600;
+      border-bottom: 1px solid #30363d;
+    }
+
+    tbody tr { border-bottom: 1px solid #21262d; }
+    tbody tr:last-child { border-bottom: none; }
+
+    tbody td {
+      padding: 8px 12px;
+      color: #e6edf3;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge.car        { background: #1f6feb; color: #fff; }
+    .badge.truck      { background: #bb800a; color: #fff; }
+    .badge.motorcycle { background: #238636; color: #fff; }
+
+    .speed-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .speed-bar {
+      flex: 1;
+      height: 6px;
+      background: #21262d;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .speed-bar-fill {
+      height: 100%;
+      background: #58a6ff;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .speed-val { width: 52px; text-align: right; color: #8b949e; font-size: 0.8rem; }
+
+    #empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+
+    .table-wrap {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .flash { animation: flash 0.3s ease; }
+    @keyframes flash {
+      0%   { background: #1f3a5f; }
+      100% { background: transparent; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div id="status-dot"></div>
+  <h1>Smart Flow — Live Monitor</h1>
+</header>
+
+<div class="cards">
+  <div class="card">
+    <div class="label">Vehicles</div>
+    <div class="value" id="card-count">—</div>
+    <div class="sub">in latest frame</div>
+  </div>
+  <div class="card">
+    <div class="label">Frame #</div>
+    <div class="value" id="card-frame">—</div>
+    <div class="sub" id="card-time">waiting...</div>
+  </div>
+  <div class="card">
+    <div class="label">Camera</div>
+    <div class="value" style="font-size:1rem; padding-top:6px;" id="card-camera">—</div>
+    <div class="sub" id="card-fps">frames/sec: —</div>
+  </div>
+  <div class="card">
+    <div class="label">Avg Speed</div>
+    <div class="value" id="card-avg-speed">—</div>
+    <div class="sub">km/h</div>
+  </div>
+</div>
+
+<h2>Vehicles</h2>
+<div class="table-wrap">
+  <div id="empty-state">Waiting for frames...</div>
+  <table id="vehicle-table" style="display:none;">
+    <thead>
+      <tr>
+        <th>Track ID</th>
+        <th>Type</th>
+        <th>Speed (km/h)</th>
+        <th>X</th>
+        <th>Y</th>
+        <th>Z</th>
+      </tr>
+    </thead>
+    <tbody id="vehicle-tbody"></tbody>
+  </table>
+</div>
+
+<script>
+  const socket = io();
+
+  const dot        = document.getElementById('status-dot');
+  const cardCount  = document.getElementById('card-count');
+  const cardFrame  = document.getElementById('card-frame');
+  const cardTime   = document.getElementById('card-time');
+  const cardCamera = document.getElementById('card-camera');
+  const cardFps    = document.getElementById('card-fps');
+  const cardAvg    = document.getElementById('card-avg-speed');
+  const tbody      = document.getElementById('vehicle-tbody');
+  const table      = document.getElementById('vehicle-table');
+  const emptyState = document.getElementById('empty-state');
+
+  let lastFrameAt = null;
+
+  socket.on('connect',    () => dot.classList.add('connected'));
+  socket.on('disconnect', () => dot.classList.remove('connected'));
+
+  socket.on('frame', (data) => {
+    const now = Date.now();
+    const fps = lastFrameAt ? (1000 / (now - lastFrameAt)).toFixed(1) : '—';
+    lastFrameAt = now;
+
+    const vehicles = data.vehicles ?? [];
+    const avgSpeed = vehicles.length
+      ? (vehicles.reduce((s, v) => s + v.speed, 0) / vehicles.length).toFixed(1)
+      : '—';
+
+    cardCount.textContent  = vehicles.length;
+    cardFrame.textContent  = data.frameCount ?? '—';
+    cardTime.textContent   = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—';
+    cardCamera.textContent = data.cameraId ?? '—';
+    cardFps.textContent    = `frames/sec: ${fps}`;
+    cardAvg.textContent    = avgSpeed;
+
+    if (vehicles.length === 0) {
+      table.style.display      = 'none';
+      emptyState.style.display = 'block';
+      emptyState.textContent   = 'Frame received — no vehicles detected.';
+      return;
+    }
+
+    table.style.display      = '';
+    emptyState.style.display = 'none';
+
+    tbody.innerHTML = vehicles.map(v => `
+      <tr class="flash">
+        <td>${v.trackId}</td>
+        <td><span class="badge ${v.type}">${v.type}</span></td>
+        <td>
+          <div class="speed-bar-wrap">
+            <div class="speed-bar">
+              <div class="speed-bar-fill" style="width:${Math.min(v.speed / 200 * 100, 100)}%"></div>
+            </div>
+            <span class="speed-val">${v.speed.toFixed(1)}</span>
+          </div>
+        </td>
+        <td>${v.position.x.toFixed(2)}</td>
+        <td>${v.position.y.toFixed(2)}</td>
+        <td>${v.position.z.toFixed(2)}</td>
+      </tr>
+    `).join('');
+  });
+</script>
+
+</body>
+</html>
