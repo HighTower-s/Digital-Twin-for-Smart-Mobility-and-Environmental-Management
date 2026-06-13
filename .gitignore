@@ -20,16 +20,31 @@ venv/
 .ruff_cache/
 
 # ── Unity ────────────────────────────────────────────────────────────────────
-unity/Library/
-unity/Temp/
-unity/Logs/
-unity/obj/
-unity/Build/
-unity/Builds/
-unity/UserSettings/
-unity/*.csproj
-unity/*.sln
-unity/*.suo
+# Generated cache — never commit (can be 1GB+)
+unity/digitaltwin/Library/
+unity/digitaltwin/Temp/
+unity/digitaltwin/Logs/
+unity/digitaltwin/obj/
+unity/digitaltwin/ExportedObj/
+
+# WebGL build output
+unity/digitaltwin/Build/
+unity/digitaltwin/Builds/
+
+# Per-user IDE settings
+unity/digitaltwin/UserSettings/
+
+# IDE-generated project files (Unity regenerates these)
+unity/digitaltwin/*.csproj
+unity/digitaltwin/*.sln
+unity/digitaltwin/*.suo
+unity/digitaltwin/*.user
+unity/digitaltwin/*.pidb
+unity/digitaltwin/*.booproj
+unity/digitaltwin/sysinfo.txt
+
+# Asset store — large vendor assets, install locally
+unity/digitaltwin/Assets/asset\ store/
 
 # ── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -44,3 +59,4 @@ desktop.ini
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 infra/db/data/
+

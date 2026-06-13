@@ -43,6 +43,7 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] `scenarios/edge.js` — invalid payloads for validation testing
 - [x] `generator.js` — main runner, posts to `/api/ingest` every 1s
 - [x] Vehicles move continuously (bounce within road boundary)
+- [ ] ⏳ Realistic speed/position ranges (see BUG-004 in `docs/bug-log.md`)
 
 ### Backend
 - [x] `POST /api/ingest` — receives payload from AI Worker or Mock Server
@@ -53,11 +54,11 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] Unit test for `validatePayload()` — 22 tests, all passing
 
 ### Unity
-- [ ] WebSocket client connects to Backend on startup
-- [ ] Receives `frame` event and parses JSON
-- [ ] Object Pool initialized (120 car models)
-- [ ] Vehicle position updates via `Vector3.Lerp`
-- [ ] Vehicles not in latest frame are hidden (not destroyed)
+- [x] WebSocket client connects to Backend on startup (SocketIOUnity)
+- [x] Receives `frame` event and parses JSON (JsonUtility via raw JSON extraction)
+- [x] Object Pool initialized (120 vehicle models, type-keyed)
+- [x] Vehicle position updates via `Vector3.Lerp` (fixed-start linear interpolation)
+- [x] Vehicles not in latest frame are hidden (not destroyed)
 - [ ] WebGL build compiles and runs in Chrome
 
 ### Gate: M1 Complete When
@@ -146,3 +147,4 @@ Record what was done each session. Newest at top.
 | 2026-06-12 | Created README.md, folder structure, all module CLAUDE.md files, docker-compose.yml, infra/db/init.sql | Add .gitignore, then implement Mock Server |
 | 2026-06-12 | Implemented Mock Server: generator.js + 3 scenarios (normal, congestion, edge). All smoke tests pass. | Implement Backend (`POST /api/ingest`, validation, WebSocket, TimescaleDB) |
 | 2026-06-13 | Implemented Backend: Express + Socket.io, POST /api/ingest, GET /health, validatePayload (22 unit tests), async TimescaleDB logger. tsc --noEmit passes clean. | Connect Mock Server → Backend → Unity (M1 gate) |
+| 2026-06-13 | Implemented Unity scripts (FrameData, VehiclePool, VehicleController, WebSocketClient). Fixed 5 code-review bugs + 2 integration bugs (SocketIOUnity threading, System.Text.Json field deserialization). Vehicles now spawn and move in Editor Play mode. Mock-server data quality deferred (BUG-004). | WebGL build + M1 gate test |
