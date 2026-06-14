@@ -43,7 +43,7 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] `scenarios/edge.js` — invalid payloads for validation testing
 - [x] `generator.js` — main runner, posts to `/api/ingest` every 1s
 - [x] Vehicles move continuously (bounce within road boundary)
-- [ ] ⏳ Realistic speed/position ranges (see BUG-004 in `docs/bug-log.md`)
+- [x] Realistic speed/position ranges — physics-based movement with lanes, smooth speed, stop-and-go (BUG-004 resolved 2026-06-14)
 
 ### Backend
 - [x] `POST /api/ingest` — receives payload from AI Worker or Mock Server
@@ -148,3 +148,4 @@ Record what was done each session. Newest at top.
 | 2026-06-12 | Implemented Mock Server: generator.js + 3 scenarios (normal, congestion, edge). All smoke tests pass. | Implement Backend (`POST /api/ingest`, validation, WebSocket, TimescaleDB) |
 | 2026-06-13 | Implemented Backend: Express + Socket.io, POST /api/ingest, GET /health, validatePayload (22 unit tests), async TimescaleDB logger. tsc --noEmit passes clean. | Connect Mock Server → Backend → Unity (M1 gate) |
 | 2026-06-13 | Implemented Unity scripts (FrameData, VehiclePool, VehicleController, WebSocketClient). Fixed 5 code-review bugs + 2 integration bugs (SocketIOUnity threading, System.Text.Json field deserialization). Vehicles now spawn and move in Editor Play mode. Mock-server data quality deferred (BUG-004). | WebGL build + M1 gate test |
+| 2026-06-14 | Rewrote normal.js + congestion.js: physics-based movement (lane assignment, smooth speed lerp, wrap-around), congestion adds stop-and-go. Road layout matches real Chalong Krung divided highway (3 lanes/side). BUG-004 resolved. | WebGL build + M1 gate test |
