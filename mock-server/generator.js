@@ -2,7 +2,7 @@ import http from "node:http";
 import { URL } from "node:url";
 
 const INTERVAL_MS = 1000;
-const VALID_SCENARIOS = ["normal", "congestion", "edge"];
+const VALID_SCENARIOS = ["normal", "congestion", "edge", "demo"];
 
 function parseArgs() {
   const args = process.argv.slice(2);

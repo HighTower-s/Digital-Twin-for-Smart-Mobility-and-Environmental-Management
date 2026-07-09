@@ -49,7 +49,7 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] `POST /api/ingest` — receives payload from AI Worker or Mock Server
 - [x] Validation layer — rejects invalid payloads with HTTP 400
 - [x] WebSocket — broadcasts valid payload via `emit("frame")`
-- [x] TimescaleDB — async log insert (non-blocking)
+- [x] TimescaleDB — async log insert (non-blocking) — ปิดด้วย ENABLE_DB_LOGGING (default false) ตามอาจารย์
 - [x] `GET /health` — health check endpoint
 - [x] Unit test for `validatePayload()` — 22 tests, all passing
 
@@ -62,8 +62,8 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [ ] WebGL build compiles and runs in Chrome
 
 ### Gate: M1 Complete When
-- [ ] Mock Server (normal scenario) → Backend → Unity renders cars moving on screen
-- [ ] Backend correctly rejects edge scenario payloads (HTTP 400)
+- [x] Mock Server (normal scenario) → Backend → Unity renders cars moving on screen (Play mode, โปรเจกต์ Smartflow — 2026-07-09)
+- [x] Backend correctly rejects edge scenario payloads (HTTP 400)
 - [ ] End-to-end latency measured and documented below
 
 ---
@@ -149,3 +149,6 @@ Record what was done each session. Newest at top.
 | 2026-06-13 | Implemented Backend: Express + Socket.io, POST /api/ingest, GET /health, validatePayload (22 unit tests), async TimescaleDB logger. tsc --noEmit passes clean. | Connect Mock Server → Backend → Unity (M1 gate) |
 | 2026-06-13 | Implemented Unity scripts (FrameData, VehiclePool, VehicleController, WebSocketClient). Fixed 5 code-review bugs + 2 integration bugs (SocketIOUnity threading, System.Text.Json field deserialization). Vehicles now spawn and move in Editor Play mode. Mock-server data quality deferred (BUG-004). | WebGL build + M1 gate test |
 | 2026-06-14 | Rewrote normal.js + congestion.js: physics-based movement (lane assignment, smooth speed lerp, wrap-around), congestion adds stop-and-go. Road layout matches real Chalong Krung divided highway (3 lanes/side). BUG-004 resolved. | WebGL build + M1 gate test |
+| 2026-07-09 | AI Worker (FastAPI vehicle-twin): เพิ่ม contract.py แปลง output ให้ตรง data-contract (map type, y=0, cap 120) + endpoint /stream สตรีมผล YOLOv8+homography เข้า backend/api/ingest แบบ real-time (~2 Hz, httpx) + ปุ่ม "ส่งเข้า Digital Twin" ใน UI. Backend: เพิ่ม ENABLE_DB_LOGGING flag (ปิด TimescaleDB เป็นค่าเริ่มต้นตามอาจารย์). อัปเดต architecture.md (dep + DB optional). ยืนยันเรื่องกล้อง: SICA CCTV มีแต่ยังไม่ได้สิทธิ์ → ใช้วิดีโออัปโหลดแทน RTSP ไปก่อน | WebGL build + ทดสอบครบวงจร upload→detect→backend→Unity |
+| 2026-07-09 | Unity หายไป → สร้างโปรเจกต์ใหม่ Smartflow, ใส่สคริปต์ 4 ตัว (FrameData/VehicleController/VehiclePool/WebSocketClient) + FreeCameraController (Input System ใหม่). ผ่าน M1 gate: mock → backend → Unity เห็นรถวิ่งใน Play mode | ทดสอบ ai-worker (วิดีโอจริง) → Unity, วัด latency, init git |
+| 2026-07-09 | เพิ่ม Plan 1 (คร่าวๆ): count_detector.py — ตีเส้น 2 เส้น นับรถ (counted-set กันซ้ำ) + วัดความเร็ว (d/เวลาข้าม A→B) + PopulationManager จำลองตำแหน่งลงถนน (เลน −9/0/9, z −60..240 ตรงกับ mock/Unity). เพิ่ม endpoint /process_count + toggle โหมด twin/count ใน UI. Unit test ผ่าน: population layout, cap 120, สูตรความเร็ว, contract ผ่าน validatePayload. ตอนนี้ 1 เว็บทำได้ทั้ง 2 Plan สลับด้วยปุ่ม | WebGL build + ทดสอบครบวงจรด้วยวิดีโอจริง (ทั้ง 2 โหมด) |

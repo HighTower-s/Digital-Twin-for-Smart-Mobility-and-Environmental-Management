@@ -95,8 +95,11 @@ Mock Server  ──────────────────▶  Backend 
 | Module | Technology | Version | Notes |
 |---|---|---|---|
 | AI Worker | Python | 3.11 | |
-| | OpenCV | 4.x | RTSP capture |
-| | Ultralytics YOLOv8 | latest stable | Object detection + tracking |
+| | OpenCV | 4.x | RTSP / video capture |
+| | Ultralytics YOLOv8 | latest stable | Object detection + ByteTrack |
+| | FastAPI + Uvicorn | latest stable | เว็บอัปโหลด + calibrate homography + สตรีม |
+| | httpx | >=0.27 | POST เฟรมเข้า backend/api/ingest |
+| | python-dotenv | >=1.0 | อ่านค่า config จาก .env |
 | Backend | Node.js | 20 LTS | |
 | | Express | 4.x | HTTP server |
 | | Socket.io | 4.x | WebSocket abstraction |
@@ -134,6 +137,19 @@ Object Pooling and Lerp interpolation in Unity are mature, well-documented
 patterns for exactly this use case (100+ moving objects, position updates
 every second). The team already has Unity experience. Three.js would require
 reimplementing the same patterns from scratch.
+
+### Why a web-based AI Worker (FastAPI) + video upload สำหรับ MVP
+กล้อง CCTV ของ SICA มีอยู่แต่ยังไม่ได้รับอนุญาตให้เข้าถึง จึงพัฒนา/เดโมด้วย
+**วิดีโออัปโหลด** แทน RTSP ไปก่อน FastAPI ให้ UI สำหรับอัปโหลด, calibrate homography
+(คลิก 4 จุด), รัน YOLOv8+ByteTrack แล้วสตรีมผลตาม data-contract เข้า backend ผ่าน `httpx`
+โครงนี้สลับมาใช้ RTSP จริงได้โดยเปลี่ยนแหล่งเฟรมเท่านั้น — payload และปลายทางเหมือนเดิม
+สอดคล้องหลัก Mock-First: backend/Unity แยกไม่ออกว่าเฟรมมาจาก mock, วิดีโอ, หรือกล้องจริง
+
+### Why TimescaleDB logging เป็น optional (ปิดเป็นค่าเริ่มต้น) สำหรับ MVP
+อาจารย์ระบุว่ายังไม่ต้องมี DB และ server คณะมีทรัพยากรจำกัด จึง gate การเขียน DB ด้วย
+flag `ENABLE_DB_LOGGING` (ค่าเริ่มต้น `false`) — pipeline หลัก (ingest → WebSocket → Unity)
+ทำงานครบโดยไม่ต้องรัน TimescaleDB โค้ด logger เดิมคงไว้ เปิด flag กลับได้เมื่อพร้อม (Phase 2)
+**หมายเหตุ:** นี่คือการเลื่อน ไม่ใช่การแทน DB — TimescaleDB ยังเป็น DB ที่เลือกไว้ (ดู Hard Rule)
 
 ### Why Monorepo
 Team size is 2. Multi-repo adds overhead (separate CI, versioning, cloning)

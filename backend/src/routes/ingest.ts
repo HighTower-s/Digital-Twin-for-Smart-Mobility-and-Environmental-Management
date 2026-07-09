@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Server as SocketServer } from 'socket.io';
 import { validatePayload, FramePayload } from '../validation/validatePayload';
 import { insertFrame } from '../db/logger';
+import { ENABLE_DB_LOGGING } from '../constants';
 
 const LOG_TRUNCATE = 500;
 
@@ -22,10 +23,13 @@ export function createIngestRouter(io: SocketServer): Router {
 
     io.emit('frame', payload);
 
-    // Fire-and-forget — DB logging must never delay the broadcast
-    insertFrame(payload).catch((err: unknown) => {
-      console.error('[ingest] DB insert failed:', err);
-    });
+    // Fire-and-forget — DB logging must never delay the broadcast.
+    // Disabled by default for MVP (no TimescaleDB); enable via ENABLE_DB_LOGGING=true
+    if (ENABLE_DB_LOGGING) {
+      insertFrame(payload).catch((err: unknown) => {
+        console.error('[ingest] DB insert failed:', err);
+      });
+    }
 
     res.status(200).json({ ok: true });
   });

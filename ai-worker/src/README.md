@@ -1,0 +1,77 @@
+# Vehicle Digital Twin — YOLOv8
+
+เว็บแอปสำหรับอัปโหลดวิดีโอจราจร แล้วใช้ **YOLOv8 + ByteTrack** ตรวจจับและติดตามรถ
+จากนั้นแปลงพิกัดภาพเป็นพิกัดจริง (เมตร) ด้วย **Homography** เพื่อคำนวณ
+`position`, `speed`, `heading` ของรถแต่ละคัน แล้วส่งออกเป็นวิดีโอที่ annotate แล้ว + ไฟล์ **JSON**
+สำหรับป้อนเข้า Digital Twin
+
+## ติดตั้ง
+
+ต้องมี Python 3.9+ ก่อน
+
+```bash
+cd vehicle-twin
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+> โมเดล `yolov8n.pt` จะดาวน์โหลดอัตโนมัติครั้งแรก
+> แนะนำให้ติดตั้ง **ffmpeg** ด้วย เพื่อให้วิดีโอผลลัพธ์เล่นในเบราว์เซอร์ได้
+> (mac: `brew install ffmpeg` · ubuntu: `sudo apt install ffmpeg`)
+
+## รัน
+
+```bash
+uvicorn app:app --reload --port 8000
+```
+
+เปิดเบราว์เซอร์ที่ http://localhost:8000
+
+## ขั้นตอนใช้งาน
+
+1. **อัปโหลดวิดีโอ** — ระบบดึงเฟรมแรกมาให้ calibrate
+2. **Calibrate** — คลิก 4 จุดบนพื้นถนนตามลำดับ 1→2→3→4 แล้วกรอกพิกัดจริง (เมตร)
+   ของแต่ละจุด นี่คือขั้นที่สำคัญที่สุด ถ้าจุดอ้างอิงแม่น ตำแหน่ง/ความเร็วจะแม่นตาม
+3. **ประมวลผล** — ได้วิดีโอ annotate + ปุ่มดาวน์โหลด JSON
+
+## โครงสร้าง JSON ที่ได้
+
+```json
+{
+  "meta": {
+    "fps": 30.0,
+    "resolution": [1920, 1080],
+    "homography_src_px": [[...], ...],
+    "homography_dst_m": [[0,0],[10,0],[10,20],[0,20]],
+    "unique_vehicles": 12,
+    "max_speed_kmh": 63.4,
+    "total_frames": 900
+  },
+  "frames": [
+    {
+      "frame": 0,
+      "timestamp": 0.0,
+      "vehicles": [
+        {"id": 5, "type": "car", "x": 12.3, "y": 45.6,
+         "speed_kmh": 42.5, "heading": 90.0, "bbox": [x1,y1,x2,y2]}
+      ]
+    }
+  ]
+}
+```
+
+- `x`, `y` = ตำแหน่งจริงบนระนาบพื้น (เมตร)
+- `heading` = ทิศทางการเคลื่อนที่ (องศา) ใช้หมุนโมเดลรถใน 3D
+- ป้อน stream นี้เข้า Unity / three.js / Unreal เพื่อวางรถใน digital twin ได้เลย
+
+## ปรับแต่ง
+
+- เปลี่ยนโมเดลใน `app.py`: `YOLO("yolov8s.pt")` หรือ `m/l/x` เพื่อความแม่นยำสูงขึ้น (ช้าลง)
+- `smooth (เฟรม)` มากขึ้น = ความเร็วนิ่งขึ้นแต่ตอบสนองช้าลง
+- อยากได้ค่านิ่งระดับ production แนะนำต่อยอดด้วย Kalman filter
+
+## หมายเหตุ
+
+- กล้องควรอยู่นิ่ง (fixed) — ถ้ากล้องขยับ homography จะเพี้ยน
+- homography ใช้ได้ดีกับพื้นราบ (ถนน) ระนาบเดียว

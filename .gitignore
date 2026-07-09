@@ -1,4 +1,4 @@
-# ── Environment ──────────────────────────────────────────────────────────────
+# ── Environment / secrets ────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
@@ -7,6 +7,8 @@
 node_modules/
 dist/
 *.js.map
+npm-debug.log*
+yarn-error.log*
 
 # ── Python (ai-worker) ───────────────────────────────────────────────────────
 __pycache__/
@@ -18,33 +20,51 @@ venv/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+.pytest_cache/
 
-# ── Unity ────────────────────────────────────────────────────────────────────
-# Generated cache — never commit (can be 1GB+)
-unity/digitaltwin/Library/
-unity/digitaltwin/Temp/
-unity/digitaltwin/Logs/
-unity/digitaltwin/obj/
-unity/digitaltwin/ExportedObj/
+# AI Worker — ไฟล์ที่ผู้ใช้อัปโหลด/ผลลัพธ์ + โมเดล (ไม่ต้องขึ้น git)
+ai-worker/**/data/
+ai-worker/**/uploads/
+ai-worker/**/outputs/
+ai-worker/**/frames/
+*.pt
+*.onnx
 
-# WebGL build output
-unity/digitaltwin/Build/
-unity/digitaltwin/Builds/
+# ── Unity (ครอบทุกโปรเจกต์ใต้ unity/ — digitaltwin, Smartflow, ฯลฯ) ────────────
+# Cache ที่ Unity สร้างเอง — ห้าม commit (ใหญ่ระดับ GB)
+unity/*/Library/
+unity/*/Temp/
+unity/*/Logs/
+unity/*/obj/
+unity/*/Obj/
+unity/*/MemoryCaptures/
+unity/*/ExportedObj/
 
-# Per-user IDE settings
-unity/digitaltwin/UserSettings/
+# ผลลัพธ์ build (รวม WebGL)
+unity/*/Build/
+unity/*/Builds/
 
-# IDE-generated project files (Unity regenerates these)
-unity/digitaltwin/*.csproj
-unity/digitaltwin/*.sln
-unity/digitaltwin/*.suo
-unity/digitaltwin/*.user
-unity/digitaltwin/*.pidb
-unity/digitaltwin/*.booproj
-unity/digitaltwin/sysinfo.txt
+# การตั้งค่าเฉพาะเครื่อง / IDE (Unity สร้างใหม่ได้)
+unity/*/UserSettings/
+unity/*/.vs/
+unity/*/*.csproj
+unity/*/*.sln
+unity/*/*.slnx
+unity/*/*.suo
+unity/*/*.user
+unity/*/*.pidb
+unity/*/*.booproj
+unity/*/sysinfo.txt
 
-# Asset store — large vendor assets, install locally
-unity/digitaltwin/Assets/asset\ store/
+# Asset store — vendor assets ก้อนใหญ่ ติดตั้งเองในเครื่อง
+unity/*/Assets/asset store/
+unity/*/Assets/asset\ store/
+
+# โฟลเดอร์ backup ที่ย้ายไฟล์ asset ที่ไม่ใช้ออกมา (159MB — ห้ามขึ้น git)
+_assetStore_unused/
+
+# ── Docker / DB data ─────────────────────────────────────────────────────────
+infra/db/data/
 
 # ── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -56,7 +76,3 @@ desktop.ini
 .idea/
 *.swp
 *.swo
-
-# ── Docker ───────────────────────────────────────────────────────────────────
-infra/db/data/
-
