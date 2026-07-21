@@ -24,7 +24,9 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/*.test.ts"]
+    "testMatch": [
+      "**/*.test.ts"
+    ]
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

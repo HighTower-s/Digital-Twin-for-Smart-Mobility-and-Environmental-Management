@@ -16,10 +16,10 @@ namespace SmartFlow.CameraControl
     [ExecuteAlways]
     public class TrafficOriginGizmo : MonoBehaviour
     {
-        [Tooltip("ตำแหน่ง x กลางเลน (ให้ตรงกับ LANES ใน .env) เช่น [-1.75, 1.75] = 2 เลน")]
-        public float[] lanes = { -1.75f, 1.75f };
+        [Tooltip("ตำแหน่ง x กลางเลน (ต้องตรงกับ LANES ใน .env เป๊ะ) เช่น [-3.5, 0, 3.5] = 3 เลน")]
+        public float[] lanes = { -3.5f, 0f, 3.5f };
 
-        [Tooltip("ครึ่งความกว้างเลน (LANE_HALF_WIDTH)")]
+        [Tooltip("ครึ่งความกว้างเลน (ต้องตรงกับ LANE_HALF_WIDTH ใน .env)")]
         public float laneHalfWidth = 1.6f;
 
         [Tooltip("ความยาวถนน (ROAD_LEN) — รถวิ่งจาก 0 ไป +Z เท่านี้แล้ววนกลับ")]

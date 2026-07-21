@@ -25,7 +25,7 @@ pip install -r requirements.txt
 ```bash
 uvicorn app:app --reload --port 8000
 ```
-
+python -m uvicorn app:app --reload --port 8000
 เปิดเบราว์เซอร์ที่ http://localhost:8000
 
 ## ขั้นตอนใช้งาน

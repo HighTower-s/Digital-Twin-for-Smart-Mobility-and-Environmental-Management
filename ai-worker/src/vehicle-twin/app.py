@@ -49,8 +49,9 @@ CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))  # busine
 VEHICLE_CLASSES = [1, 2, 3, 5, 7]
 CLASS_NAMES = {1: "bicycle", 2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 
-# โหลดโมเดลครั้งเดียวตอนสตาร์ท (เปลี่ยนเป็น yolov8s.pt / yolov8m.pt เพื่อความแม่นยำสูงขึ้น)
-model = YOLO("yolov8n.pt")
+# โหลดโมเดลครั้งเดียวตอนสตาร์ท — เปลี่ยนผ่าน .env: YOLO_MODEL=yolov8s.pt (แม่นมอไซค์ขึ้น, ช้าลง)
+YOLO_MODEL = os.getenv("YOLO_MODEL", "yolov8n.pt")
+model = YOLO(YOLO_MODEL)
 
 app = FastAPI(title="Vehicle Digital Twin")
 
