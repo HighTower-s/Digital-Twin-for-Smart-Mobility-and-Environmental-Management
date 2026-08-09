@@ -1,0 +1,28 @@
+# AI Worker — ค่าตั้งค่าสำหรับ prototype (line counting)
+# รัน: python -m src.main   (หรือ --config other.yaml เพื่อใช้ไฟล์อื่น)
+
+video: data/input_videos/traffic-1.mp4
+model: data/weights/yolov8s.pt
+camera_id: cam-chalongkrung-01
+
+imgsz: 640
+conf: 0.35
+tracker: bytetrack.yaml        # หรือ botsort.yaml (สลับ ID น้อยกว่า แต่ช้ากว่า)
+device: auto                   # auto | cpu | 0
+
+show_window: true
+max_frames: 300                 # 0 = ทั้งคลิป
+emit_preview: 20             # 0 = print ทุก event ถ้ารถหนาแน่นใช้ตัวเลขจำกัด
+
+# zones: auto = เดาโซน/เส้นนับจากขนาดเฟรม (ใช้ดูภาพรวมเร็ว ๆ ตัวเลขยังอ้างอิงไม่ได้)
+# หรือใส่ calib เอง เช่น:
+# zones:
+#   - name: in
+#     expectedDirection: toward
+#     polygon: [[960, 270], [1843, 270], [1843, 1026], [960, 1026]]
+#     line: [[965, 648], [1838, 648]]
+#   - name: out
+#     expectedDirection: away
+#     polygon: [[77, 270], [960, 270], [960, 1026], [77, 1026]]
+#     line: [[82, 648], [955, 648]]
+zones: auto
