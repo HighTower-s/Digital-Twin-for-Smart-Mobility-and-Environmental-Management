@@ -86,6 +86,7 @@ src/
   constants.py  ค่าคงที่ทั้งหมด (COCO map, ทิศ, เหตุผล, สี)                    [บริสุทธิ์]
   emitter.py    spawn event → events.jsonl                                   [บริสุทธิ์]
   overlay.py    วาดกล่อง/โซน/เส้น/HUD                                        [cv2]
+  calibrate.py  เครื่องมือคลิกหาพิกัด polygon/line จากเฟรมจริง → print YAML     [cv2]
 tests/          test_counter.py, test_config.py, test_emitter.py, test_detector.py
 config.yaml     ตั้งค่าทั้งหมด (path วิดีโอ, โมเดล, conf, imgsz, โซน)
 ```
@@ -102,7 +103,7 @@ config.yaml     ตั้งค่าทั้งหมด (path วิดีโ
 2. ⏳ **เพิ่ม lane + speed จริง** — งานแยกในอนาคต (ดู §5 ว่าทำไมยังไม่ทำตอนนี้)
 3. ⏳ **Live bridge** — แปลง spawn event → payload ตาม `data-contract.md` → POST เข้า backend
    (ต้องออกแบบใหม่ — ยังไม่มีตำแหน่ง/ความเร็วจริงให้ใส่ payload)
-4. ⏳ **กำหนดโซนเอง + วัดความแม่นยำ** — เครื่องมือคลิกกำหนดโซน/เส้น (ยังไม่มี) + นับมือเทียบ
+4. ⏳ **กำหนดโซนเอง + วัดความแม่นยำ** — ✅ เครื่องมือคลิก (`calibrate.py`) มีแล้ว เหลือ: นับมือเทียบ
 5. ⏳ **MVP Main** — เปลี่ยนแหล่งเป็น RTSP + หา position/speed จริง (homography หรือวิธีอื่น)
 
 ---
@@ -150,6 +151,6 @@ python -m src.main --config other.yaml  # ใช้ config อื่น (ตั�
 
 - **ไม่มี lane/speed** — ตั้งใจตัดออก จะกลับมาเพิ่มเป็นงานแยก (§5)
 - **ไม่เชื่อมกับ backend/Unity ในรอบนี้** — ต้องออกแบบสะพานใหม่ตอนทำ Roadmap ขั้น 3
-- **ยังไม่มีเครื่องมือกำหนดโซนแบบคลิก** — ตอนนี้กำหนดโซนเองต้องแก้ `zones:` ใน `config.yaml`
-  ด้วยมือ (ดูตัวอย่างในไฟล์)
+- **ยังไม่ได้นับมือเทียบวัดความแม่นยำ** — `calibrate.py` มีแล้ว (ขั้นตอน: `python -m src.calibrate`
+  → คลิก polygon+line ทีละ zone → ก็อป YAML ที่ print ออกมาใส่ `config.yaml`)
 - **`architecture.md` §2** ยังเขียน "homography" อยู่ — ต้อง reconcile กับ pivot ภายหลัง

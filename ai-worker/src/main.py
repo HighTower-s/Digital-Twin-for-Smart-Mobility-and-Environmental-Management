@@ -38,6 +38,7 @@ ANOMALY_COLUMNS = [*COUNT_COLUMNS, "reason"]
 # ==================================================== อ่านค่าจากบรรทัดคำสั่ง
 
 
+# Command-line interface
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="นับรถจากไฟล์วิดีโอ ตั้งค่าผ่าน config.yaml")
     parser.add_argument(
@@ -75,16 +76,16 @@ def open_csv(path: Path, columns: list[str]) -> tuple[TextIO, Any]:
 
 
 def open_video(path: Path) -> tuple[Any, tuple[int, int], float, int]:
-    """เปิดวิดีโอแล้วคืน (cap, ขนาดเฟรม, fps, จำนวนเฟรม) — พังดังถ้าเปิดไม่ได้"""
+    """เปิดวิดีโอแล้วคืน (cap, ขนาดเฟรม, fps, จำนวนเฟรม) Fail Fast"""
     import cv2
 
     if not path.exists():
-        raise SystemExit(f"[ผิดพลาด] ไม่พบไฟล์วิดีโอ: {path.resolve()}")
+        raise SystemExit(f"Video Files not found: {path.resolve()}")
 
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
         raise SystemExit(
-            f"[ผิดพลาด] เปิดวิดีโอไม่ได้: {path.resolve()}\n"
+            f"error cant open video: {path.resolve()}\n"
             f"  ไฟล์อาจเสีย หรือ OpenCV ไม่รองรับ codec นี้ ลองแปลงเป็น H.264 mp4 ก่อน"
         )
 
@@ -102,21 +103,21 @@ def open_video(path: Path) -> tuple[Any, tuple[int, int], float, int]:
 def print_header(
     cfg: RunConfig, frame_size: tuple[int, int], fps: float, total_frames: int, device: str
 ) -> None:
-    print(f"วิดีโอ      : {cfg.video_path}")
-    print(f"ขนาดเฟรม   : {frame_size[0]}x{frame_size[1]}  fps={fps:.2f}  เฟรม={total_frames}")
+    print(f"video     : {cfg.video_path}")
+    print(f"Frame_size   : {frame_size[0]}x{frame_size[1]}  fps={fps:.2f}  เฟรม={total_frames}")
     print(
-        f"โมเดล       : {cfg.model}  tracker={cfg.tracker}  "
+        f"model       : {cfg.model}  tracker={cfg.tracker}  "
         f"imgsz={cfg.imgsz}  conf={cfg.conf_threshold}"
     )
     print(f"device      : {device}")
     if cfg.is_auto:
         print(
-            "โซน         : **เดาให้อัตโนมัติ** จากขนาดเฟรม (ยังไม่ได้กำหนดเอง)\n"
+            "zone         : **เดาให้อัตโนมัติ** จากขนาดเฟรม (ยังไม่ได้กำหนดเอง)\n"
             "              ตัวเลขที่ได้ใช้ดูภาพรวมได้ แต่ยังไม่ควรเอาไปอ้างอิง\n"
             "              ทำให้แม่นขึ้น: กำหนด zones เองใน config.yaml"
         )
     else:
-        print("โซน         : กำหนดเองใน config.yaml")
+        print("zone         : กำหนดเองใน config.yaml")
     for zone in cfg.zones:
         print(f"              - {zone.name}: {zone.expected_direction}")
     print()

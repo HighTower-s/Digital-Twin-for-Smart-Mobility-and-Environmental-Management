@@ -61,6 +61,20 @@ python -m src.main --config other.yaml  # ใช้ config อื่น
 แต่ละโซนมี `name`, `expectedDirection` (`toward`/`away`), `polygon` (จุดอย่างน้อย 3 จุด),
 `line` (จุดตัดกับถนน 2 จุด)
 
+### หาพิกัดด้วยเครื่องมือคลิก
+
+ไม่ต้องเดาพิกัดเอง ใช้ `calibrate.py` คลิกจากเฟรมจริงของวิดีโอได้เลย:
+
+```bash
+python -m src.calibrate                                  # ใช้ video: จาก config.yaml
+python -m src.calibrate --video data/input_videos/x.mp4  # หรือระบุไฟล์เอง
+python -m src.calibrate --frame 90                       # เลือกเฟรมอื่น (ค่าเริ่มต้น 60)
+```
+
+คลิกซ้าย = เพิ่มจุด · `Enter` = จบรูปปัจจุบัน (polygon → line → zone ถัดไป) · `u` = undo ·
+`r` = reset รูปปัจจุบัน · `q` = เลิกทั้งหมด — จบแล้วจะ print YAML พร้อมก็อปวางใส่
+`config.yaml` ทันที (พิกัดอ้างอิงตามขนาดเฟรมจริงเสมอ ต่อให้หน้าต่างที่เห็นถูกย่อแสดงผล)
+
 ---
 
 ## ผลลัพธ์ (`data/output_results/`)

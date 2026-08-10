@@ -8,10 +8,10 @@ camera_id: cam-chalongkrung-01
 imgsz: 640
 conf: 0.35
 tracker: bytetrack.yaml        # หรือ botsort.yaml (สลับ ID น้อยกว่า แต่ช้ากว่า)
-device: auto                   # auto | cpu | 0
+device: 0                   # auto | cpu | 0
 
 show_window: true
-max_frames: 300                 # 0 = ทั้งคลิป
+max_frames: 0                 # 0 = ทั้งคลิป
 emit_preview: 20             # 0 = print ทุก event ถ้ารถหนาแน่นใช้ตัวเลขจำกัด
 
 # zones: auto = เดาโซน/เส้นนับจากขนาดเฟรม (ใช้ดูภาพรวมเร็ว ๆ ตัวเลขยังอ้างอิงไม่ได้)
@@ -25,4 +25,12 @@ emit_preview: 20             # 0 = print ทุก event ถ้ารถหน�
 #     expectedDirection: away
 #     polygon: [[77, 270], [960, 270], [960, 1026], [77, 1026]]
 #     line: [[82, 648], [955, 648]]
-zones: auto
+zones:
+  - name: in
+    expectedDirection: toward
+    polygon: [[1713, 477], [2160, 468], [3006, 1392], [1599, 1389]]
+    line: [[1644, 981], [2631, 978]]
+  - name: out
+    expectedDirection: away
+    polygon: [[1197, 1290], [1536, 543], [1020, 504], [0, 1149]]
+    line: [[258, 999], [1326, 972]]
