@@ -268,7 +268,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -134, y: 1, z: 205.6}
+  m_LocalPosition: {x: -147.95, y: 9.99, z: 71.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -683,6 +683,56 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: -4161369568681901532, guid: 2ea6785b57c21c04e97cc38e4ea5813b, type: 3}
+--- !u!1 &1269976258
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1269976260}
+  - component: {fileID: 1269976259}
+  m_Layer: 0
+  m_Name: TrafficOrigin
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1269976259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1269976258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0321eb0716152345ad45565a2100bca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SmartFlow.CameraControl.TrafficOriginGizmo
+  lanes:
+  - -3.5
+  - 0
+  - 3.5
+  laneHalfWidth: 1.6
+  roadLen: 200
+--- !u!4 &1269976260
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1269976258}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.010807876, z: -0, w: 0.99994165}
+  m_LocalPosition: {x: -147.55, y: -0, z: 74.29}
+  m_LocalScale: {x: 0.92987, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 1.239, z: 0}
 --- !u!1001 &1639534901
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -831,7 +881,7 @@ MonoBehaviour:
   _carPrefab: {fileID: 3638911070570068518, guid: d0024bdfd95aeaa4baa5bee3518dd15d, type: 3}
   _truckPrefab: {fileID: 100014, guid: 24ce846b8daf4d243861d1f2d32f68d3, type: 3}
   _motorcyclePrefab: {fileID: 3454586496624822134, guid: fff829e4633da9c498436f0b6d94fade, type: 3}
-  _originAnchor: {fileID: 0}
+  _originAnchor: {fileID: 1269976260}
 --- !u!1001 &4726202254198248399
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -913,3 +963,4 @@ SceneRoots:
   - {fileID: 985730651}
   - {fileID: 1004149928}
   - {fileID: 161352118}
+  - {fileID: 1269976260}
