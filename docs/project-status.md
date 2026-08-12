@@ -45,12 +45,19 @@ Focus: Prove that the pipeline works end-to-end with mock data before touching r
 - [x] Vehicles move continuously (bounce within road boundary)
 - [x] Realistic speed/position ranges — physics-based movement with lanes, smooth speed, stop-and-go (BUG-004 resolved 2026-06-14)
 
-### Backend
-- [x] `POST /api/ingest` — receives payload from AI Worker or Mock Server
+### Backend — Prototype (spawn-event, current)
+- [x] `POST /api/ingest` — receives one spawn-event, validates, updates counters, `emit("spawn", event)`
+- [x] `validateSpawnEvent()` — rejects invalid spawn-events with HTTP 400 + reason (15 unit tests, all passing)
+- [x] `GET /api/stats` / `POST /api/stats/reset` — in-memory vehicle counters (by type × direction), 6 unit tests, all passing
+- [x] `GET /health` — health check endpoint
+- [x] No database — counters are in-memory only, reset on restart
+- [x] Smoke tested: replayed `ai-worker/data/output_results/events.jsonl` (28 events) → `/api/stats` totals matched the file exactly; confirmed a Socket.io client receives `spawn` events (incl. `bus` type); confirmed invalid `type` → HTTP 400
+
+### Backend — MVP (frame schema, deferred)
+- [x] `POST /api/ingest` — receives payload from AI Worker or Mock Server (implemented 2026-06-13, code preserved in git history — deleted from working tree, restore when starting MVP)
 - [x] Validation layer — rejects invalid payloads with HTTP 400
 - [x] WebSocket — broadcasts valid payload via `emit("frame")`
 - [x] TimescaleDB — async log insert (non-blocking) — ปิดด้วย ENABLE_DB_LOGGING (default false) ตามอาจารย์
-- [x] `GET /health` — health check endpoint
 - [x] Unit test for `validatePayload()` — 22 tests, all passing
 
 ### Unity
@@ -153,3 +160,5 @@ Record what was done each session. Newest at top.
 | 2026-07-09 | Unity หายไป → สร้างโปรเจกต์ใหม่ Smartflow, ใส่สคริปต์ 4 ตัว (FrameData/VehicleController/VehiclePool/WebSocketClient) + FreeCameraController (Input System ใหม่). ผ่าน M1 gate: mock → backend → Unity เห็นรถวิ่งใน Play mode | ทดสอบ ai-worker (วิดีโอจริง) → Unity, วัด latency, init git |
 | 2026-07-09 | เพิ่ม Plan 1 (คร่าวๆ): count_detector.py — ตีเส้น 2 เส้น นับรถ (counted-set กันซ้ำ) + วัดความเร็ว (d/เวลาข้าม A→B) + PopulationManager จำลองตำแหน่งลงถนน (เลน −9/0/9, z −60..240 ตรงกับ mock/Unity). เพิ่ม endpoint /process_count + toggle โหมด twin/count ใน UI. Unit test ผ่าน: population layout, cap 120, สูตรความเร็ว, contract ผ่าน validatePayload. ตอนนี้ 1 เว็บทำได้ทั้ง 2 Plan สลับด้วยปุ่ม | WebGL build + ทดสอบครบวงจรด้วยวิดีโอจริง (ทั้ง 2 โหมด) |
 | 2026-07-21 | ทดสอบ twin (homography) กับวิดีโอจริง (per1–per4) → พบว่ามั่ว: พิกัดเพี้ยน, ความเร็วพุ่ง 200–290 km/h, ByteTrack สลับ ID เร็ว (>100 ใน 18วิ), มอไซค์หลุด. **ตัดสินใจ pivot**: เลิกใช้ homography-twin สำหรับเดโม เปลี่ยนเป็น **count-event** — ตรวจตอนรถข้ามเส้น A → ยิง spawn event {ชนิด(โหวต), เลน(จาก x), ความเร็ว(ตามชนิด SPEED_BY_TYPE)} → PopulationManager ขับไป +Z. rewrite count_detector.py (event-driven, ล็อกชนิด, lane_index_from_x, ความเร็วกำหนดตามชนิด). ไม่แตะ data-contract/backend/Unity logic. เพิ่ม test_count_sim.py (8 tests ผ่านหมด). อัปเดต .env.example (SPEED_BY_TYPE, LANE_X_BOUNDS, ROAD เป็น local frame). **พบบั๊ก Unity**: `_originAnchor` = null ในซีน + ไม่มี TrafficOrigin ในซีน + LANES/roadLen ไม่ตรงกัน 3 ที่ → เป็นเหตุรถสปอนมั่ว. รวมค่าเป็น single source of truth แล้ว (env ↔ gizmo default = LANES −3.5/0/3.5, halfWidth 1.6, roadLen 200) | **[Unity editor]** วาง TrafficOrigin ทับถนนโมเดล (หมุน +Z ตามถนน) + assign เข้า `_originAnchor` ของ VehiclePool → set gizmo.lanes/roadLen ให้ตรง .env → ทดสอบครบวงจร per4 (upload→count→backend→Unity) + วัด latency |
+| 2026-08-12 | Redesigned backend docs into **Prototype** (spawn-event ingest, in-memory counters + `GET /api/stats`, no DB) vs **MVP** (frame schema, position/speed, TimescaleDB) phases, matching current AI Worker output (`ai-worker/data/output_results/events.jsonl`). Rewrote `backend/CLAUDE.md`; updated `docs/data-contract.md` to v1.1.0 (added §2b Prototype spawn-event schema, added `"bus"` to the `type` enum in both schemas). Backend `src/` code not yet implemented for this design — docs only. | Implement Prototype backend: `routes/ingest.ts` (spawn-event), `routes/stats.ts`, `validation/validateSpawnEvent.ts`, `counters/vehicleCounters.ts`. Also: AI Worker still maps `bus → truck` (`contract.py:27`) — needs updating to actually emit `bus`; Unity needs a `spawn` event handler + bus model |
+| 2026-08-12 | Implemented Prototype backend (`server.ts`/`app.ts` split, `controllers/`, `routes/api.ts`, `sockets/unityHandler.ts`, `validation/validateSpawnEvent.ts`, `counters/vehicleCounters.ts` — no DB). Restored reusable config from git history (package.json, tsconfig, eslint, prettier), updated entry point references from `index.ts` → `server.ts`. tsc --noEmit + eslint clean. 21 unit tests pass (15 validator + 6 counters). Smoke tested end-to-end: replayed all 28 events from `events.jsonl` → `/api/stats` totals matched the file exactly (car 5in/13out, truck 0in/2out, motorcycle 7in/1out); confirmed a Socket.io client receives `emit("spawn", ...)` including a `bus`-type event; confirmed an invalid `type` is rejected with HTTP 400 + reason. Old MVP frame-schema files (`index.ts`, `routes/ingest.ts`, `validation/validatePayload.ts`, `db/logger.ts`, `public/index.html`) left deleted from working tree — still recoverable from git history for MVP. | Restore/adapt MVP frame-schema path on top of this structure when position/speed tracking is trustworthy again; fix AI Worker `bus → truck` map (`contract.py:27`); add Unity `spawn` event handler + bus model |
