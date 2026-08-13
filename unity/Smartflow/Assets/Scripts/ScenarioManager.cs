@@ -25,23 +25,27 @@ public class ScenarioManager : MonoBehaviour
     // UI สำหรับนับจำนวนรถ
     public TMP_Text inboundCountText;  
     public TMP_Text outboundCountText; 
-    private int inboundTotalCount = 0;
-    private int outboundTotalCount = 0;
+    
+    // 🟢 เปลี่ยนมาใช้ตัวแปรนับแยกประเภทรถ
+    private int inboundCarCount = 0;
+    private int inboundMotoCount = 0;
+    private int outboundCarCount = 0;
+    private int outboundMotoCount = 0;
 
     [Header("Vehicle Prefabs & Spawn")]
     public GameObject[] motorcyclePrefabs; 
     public GameObject[] carPrefabs;        
     
     [Header("Route Setup")]
-    public WaypointRoute inboundRoute;   // เส้นทางขาเข้า
-    public WaypointRoute outboundRoute;  // เส้นทางขาออก
+    public WaypointRoute inboundRoute;   
+    public WaypointRoute outboundRoute;  
 
     [Header("Scenario Configurations")]
     public ScenarioConfig[] scenarios;
 
-    // 🟢 ระบบเข้าคิวป้องกันรถเกิดทับกัน (Queue System)
+    // ระบบคิว
     private Queue<SmartFlow.Network.SpawnVehicleData> networkSpawnQueue = new Queue<SmartFlow.Network.SpawnVehicleData>();
-    public float networkSpawnDelay = 0.5f; // หน่วงเวลา 0.5 วินาทีต่อคัน
+    public float networkSpawnDelay = 0.5f; 
 
     // ระบบ Object Pool
     private Dictionary<GameObject, Queue<GameObject>> vehiclePools = new Dictionary<GameObject, Queue<GameObject>>();
@@ -57,7 +61,6 @@ public class ScenarioManager : MonoBehaviour
         SetupDropdown();
         ChangeScenario(0);
 
-        // 🟢 เริ่มระบบทยอยปล่อยรถจากคิว
         StartCoroutine(ProcessNetworkSpawnQueue());
     }
 
@@ -82,69 +85,70 @@ public class ScenarioManager : MonoBehaviour
         ClearOldVehicles();
     }
 
+    // 🟢 อัปเดต UI ให้แสดงผลแยกประเภท
     private void UpdateVehicleCountUI()
     {
         if (inboundCountText != null) 
-            inboundCountText.text = $"Inbound: {inboundTotalCount}";
+        {
+            int totalIn = inboundCarCount + inboundMotoCount;
+            inboundCountText.text = $"Inbound: {totalIn} (Car: {inboundCarCount}, Moto: {inboundMotoCount})";
+        }
         
         if (outboundCountText != null) 
-            outboundCountText.text = $"Outbound: {outboundTotalCount}";
+        {
+            int totalOut = outboundCarCount + outboundMotoCount;
+            outboundCountText.text = $"Outbound: {totalOut} (Car: {outboundCarCount}, Moto: {outboundMotoCount})";
+        }
     }
 
-    // ---------------------------------------------------
-    // ส่วนของการรับ Event จาก Network (รับบัตรคิว)
-    // ---------------------------------------------------
     public void SpawnVehicleFromNetwork(SmartFlow.Network.SpawnVehicleData netData)
     {
-        // เมื่อมี Event มา ให้จับข้อมูลโยนเข้าคิวไว้ก่อน
         networkSpawnQueue.Enqueue(netData);
     }
 
-    // ---------------------------------------------------
-    // ส่วนของการทยอยสร้างรถ (เรียกคิว)
-    // ---------------------------------------------------
     private IEnumerator ProcessNetworkSpawnQueue()
     {
-        while (true) // ทำงานตลอดเวลา
+        while (true)
         {
-            // ถ้าในคิวมีรถรออยู่
             if (networkSpawnQueue.Count > 0)
             {
-                // หยิบคิวแรกออกมา
                 var netData = networkSpawnQueue.Dequeue();
                 
                 string dir = netData.direction.ToLower();
+                string vType = netData.type.ToLower(); // 🟢 อ่านประเภทรถจาก Network
+                
                 WaypointRoute selectedRoute = null; 
 
-                // เลือกเส้นทางและนับจำนวน
+                // 🟢 แยกเงื่อนไขการนับว่าวิ่งเลนไหน และเป็นรถประเภทไหน
                 if (dir == "in" || dir == "inbound")
                 {
                     selectedRoute = inboundRoute;
-                    inboundTotalCount++; 
+                    if (vType == "motorcycle" || vType == "moto") inboundMotoCount++;
+                    else inboundCarCount++; // ถ้าไม่ใช่ระบุว่ามอเตอร์ไซค์ ให้นับเป็นรถยนต์ทั้งหมด
                 }
                 else if (dir == "out" || dir == "outbound")
                 {
                     selectedRoute = outboundRoute;
-                    outboundTotalCount++; 
+                    if (vType == "motorcycle" || vType == "moto") outboundMotoCount++;
+                    else outboundCarCount++;
                 }
                 else
                 {
                     Debug.LogWarning($"⚠️ ข้อมูล Direction ไม่ถูกต้อง: {netData.direction}");
-                    continue; // ข้ามคิวนี้ไปเลย
+                    continue; 
                 }
 
                 if (selectedRoute == null || selectedRoute.waypoints.Count == 0) 
                 {
                     Debug.LogWarning($"⚠️ ไม่พบ Waypoint สำหรับทิศทาง: {dir}");
-                    continue; // ข้ามคิวนี้ไปเลย
+                    continue; 
                 }
 
-                // อัปเดต UI ทันที
-                UpdateVehicleCountUI();
+                UpdateVehicleCountUI(); // 🟢 อัปเดตตัวเลขบนจอ
 
-                // เลือก Prefab
+                // เลือกรถจาก Pool
                 GameObject prefabToSpawn;
-                if (netData.type.ToLower() == "motorcycle")
+                if (vType == "motorcycle" || vType == "moto")
                 {
                     prefabToSpawn = motorcyclePrefabs[Random.Range(0, motorcyclePrefabs.Length)];
                 }
@@ -153,14 +157,14 @@ public class ScenarioManager : MonoBehaviour
                     prefabToSpawn = carPrefabs[Random.Range(0, carPrefabs.Length)];
                 }
 
-                // จัดการเรื่องเลน
+                // จัดการเลน
                 ScenarioConfig currentConfig = scenarios[scenarioDropdown.value];
                 float randomLaneOffset = currentConfig.laneOffsets[Random.Range(0, currentConfig.laneOffsets.Length)];
                 
                 Transform startPoint = selectedRoute.waypoints[0];
                 Vector3 finalSpawnPosition = startPoint.position + (startPoint.right * randomLaneOffset);
 
-                // เบิกรถจาก Pool
+                // เบิกรถ
                 GameObject newVehicle = GetVehicleFromPool(prefabToSpawn);
                 
                 newVehicle.transform.position = finalSpawnPosition;
@@ -175,20 +179,15 @@ public class ScenarioManager : MonoBehaviour
                 
                 Debug.Log($"🚗 Spawn รถสำเร็จ: {netData.type} ฝั่ง {netData.direction} (TrackID: {netData.trackId})");
 
-                // 🟢 หน่วงเวลาก่อนจะดึงรถคิวถัดไปออกมา (ป้องกันรถทับกัน)
                 yield return new WaitForSeconds(networkSpawnDelay);
             }
             else
             {
-                // ถ้าไม่มีคิว ให้รอเฟรมถัดไป
                 yield return null; 
             }
         }
     }
 
-    // ---------------------------------------------------
-    // ส่วนของ Object Pooling (โกดังเก็บรถ)
-    // ---------------------------------------------------
     public GameObject GetVehicleFromPool(GameObject prefab)
     {
         if (!vehiclePools.ContainsKey(prefab))
@@ -232,7 +231,6 @@ public class ScenarioManager : MonoBehaviour
     }
 }
 
-// คลาสเสริม เอาไว้แปะที่ตัวรถเพื่อจดจำว่ารถคันนี้สร้างมาจาก Prefab ตัวไหน
 public class PoolMember : MonoBehaviour 
 { 
     public GameObject originalPrefab; 
