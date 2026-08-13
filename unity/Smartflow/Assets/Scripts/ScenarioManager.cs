@@ -256,6 +256,32 @@ public class ScenarioManager : MonoBehaviour
     // เพิ่มฟังก์ชันนี้ไว้ใน ScenarioManager.cs
     public void SpawnVehicleFromNetwork(SmartFlow.Network.SpawnVehicleData netData)
     {
+        // 1. นำ direction มาแปลงเป็นตัวพิมพ์เล็กก่อนเพื่อความชัวร์
+        string dir = netData.direction.ToLower();
+        
+        WaypointRoute selectedRoute;
+
+        // 2. เช็กเงื่อนไข (รองรับทั้ง "in" และ "inbound")
+        if (dir == "in" || dir == "inbound")
+        {
+            selectedRoute = inboundRoute;
+        }
+        else if (dir == "out" || dir == "outbound")
+        {
+            selectedRoute = outboundRoute;
+        }
+        else
+        {
+            // ถ้าส่งค่าแปลกๆ มา ให้แจ้งเตือนและยกเลิกการสร้างรถ
+            Debug.LogWarning($"⚠️ ข้อมูล Direction ไม่ถูกต้อง: {netData.direction}");
+            return; 
+        }
+
+        if (selectedRoute == null || selectedRoute.waypoints.Count == 0) 
+        {
+            Debug.LogWarning($"⚠️ ไม่พบ Waypoint สำหรับทิศทาง: {dir}");
+            return;
+        }
         // --- 🟢 ระบบป้องกันรถซ้ำ ---
         if (recentTrackIds.Contains(netData.trackId))
         {
