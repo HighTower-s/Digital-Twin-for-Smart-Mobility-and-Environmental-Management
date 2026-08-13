@@ -256,23 +256,22 @@ public class ScenarioManager : MonoBehaviour
     // เพิ่มฟังก์ชันนี้ไว้ใน ScenarioManager.cs
     public void SpawnVehicleFromNetwork(SmartFlow.Network.SpawnVehicleData netData)
     {
-        // 1. นำ direction มาแปลงเป็นตัวพิมพ์เล็กก่อนเพื่อความชัวร์
+        // 1. จัดการทิศทางและเลือก Route (ประกาศ selectedRoute แค่ครั้งเดียวตรงนี้)
         string dir = netData.direction.ToLower();
-        
-        WaypointRoute selectedRoute;
+        WaypointRoute selectedRoute = null; 
 
-        // 2. เช็กเงื่อนไข (รองรับทั้ง "in" และ "inbound")
         if (dir == "in" || dir == "inbound")
         {
             selectedRoute = inboundRoute;
+            inboundTotalCount++; // บวกเลขรถขาเข้า
         }
         else if (dir == "out" || dir == "outbound")
         {
             selectedRoute = outboundRoute;
+            outboundTotalCount++; // บวกเลขรถขาออก
         }
         else
         {
-            // ถ้าส่งค่าแปลกๆ มา ให้แจ้งเตือนและยกเลิกการสร้างรถ
             Debug.LogWarning($"⚠️ ข้อมูล Direction ไม่ถูกต้อง: {netData.direction}");
             return; 
         }
@@ -282,28 +281,11 @@ public class ScenarioManager : MonoBehaviour
             Debug.LogWarning($"⚠️ ไม่พบ Waypoint สำหรับทิศทาง: {dir}");
             return;
         }
-        // --- 🟢 ระบบป้องกันรถซ้ำ ---
-        if (recentTrackIds.Contains(netData.trackId))
-        {
-            Debug.Log($"🛑 ปฏิเสธการสร้างรถ: TrackID {netData.trackId} ถูกสร้างไปแล้ว");
-            return; // หยุดการทำงาน ไม่สร้างรถซ้ำ
-        }
 
-        // จดจำ TrackID นี้ไว้
-        recentTrackIds.Enqueue(netData.trackId);
-        // ถ้าคิวเกิน 100 คัน ให้ลบอันเก่าสุดทิ้ง (ป้องกันกิน Memory)
-        if (recentTrackIds.Count > 100) recentTrackIds.Dequeue();
-        // ---------------------------
-        // 1. เลือกเส้นทาง (Inbound หรือ Outbound)
-        WaypointRoute selectedRoute = (netData.direction.ToLower() == "inbound") ? inboundRoute : outboundRoute;
-        
-        if (selectedRoute == null || selectedRoute.waypoints.Count == 0) 
-        {
-            Debug.LogWarning($"ไม่พบเส้นทางสำหรับ direction: {netData.direction}");
-            return;
-        }
+        // 2. อัปเดตข้อความบน UI ทันที
+        UpdateVehicleCountUI();
 
-        // 2. เลือกรถจาก Pool ตาม Type (motorcycle หรือ car)
+        // 3. เลือกรถจาก Pool ตาม Type
         GameObject prefabToSpawn;
         if (netData.type.ToLower() == "motorcycle")
         {
@@ -311,23 +293,19 @@ public class ScenarioManager : MonoBehaviour
         }
         else 
         {
-            // ถ้าเป็น car หรือประเภทอื่นๆ ให้ใช้ Prefab รถยนต์
             prefabToSpawn = carPrefabs[Random.Range(0, carPrefabs.Length)];
         }
 
-        // 3. ดึง Config ปัจจุบัน (เพื่อให้รู้ว่าจะให้รถวิ่งเร็วแค่ไหน เลนไหน)
-        // สมมติว่าตอนนี้เราดึงจาก Scenario ที่เลือกอยู่ (index ตาม Dropdown)
+        // 4. ตั้งค่าการ Spawn
         ScenarioConfig currentConfig = scenarios[scenarioDropdown.value];
-
-        // 4. สุ่มเลน
         float randomLaneOffset = currentConfig.laneOffsets[Random.Range(0, currentConfig.laneOffsets.Length)];
+        
         Transform startPoint = selectedRoute.waypoints[0];
         Vector3 finalSpawnPosition = startPoint.position + (startPoint.right * randomLaneOffset);
 
-        // 5. เบิกรถจาก Pool
+        // 5. เบิกรถและส่งข้อมูล
         GameObject newVehicle = GetVehicleFromPool(prefabToSpawn);
         
-        // 6. ตั้งค่าตำแหน่งและส่งข้อมูลให้รถ
         newVehicle.transform.position = finalSpawnPosition;
         newVehicle.transform.rotation = startPoint.rotation;
         
