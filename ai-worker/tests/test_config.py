@@ -51,6 +51,8 @@ def test_build_run_config_uses_defaults_when_omitted():
     assert 0.0 < cfg.conf_threshold < 1.0
     assert cfg.is_auto is True
     assert len(cfg.zones) == 2
+    assert cfg.send_to_backend is False
+    assert cfg.backend_url == "http://localhost:3000"
 
 
 def test_build_run_config_reads_overrides():
@@ -64,6 +66,16 @@ def test_build_run_config_reads_overrides():
     assert cfg.camera_id == "cam-x"
     assert cfg.max_frames == 900
     assert cfg.emit_preview == 20
+
+
+def test_build_run_config_reads_backend_settings():
+    cfg = build_run_config(
+        base_raw(send_to_backend=True, backend_url="http://backend.internal:4000"),
+        FRAME_SIZE,
+        FAKE_PATH,
+    )
+    assert cfg.send_to_backend is True
+    assert cfg.backend_url == "http://backend.internal:4000"
 
 
 def test_build_run_config_rejects_bad_imgsz():

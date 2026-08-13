@@ -1,0 +1,21 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.3/staging' branch; Version is '6000.3.19f1 (7689f4515d75) revision 7768564'; Using compiler version '194234433'; Build Type 'Release'
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-USER" at "2026-08-13T06:09:48.3000806Z"
+OS: 'Windows 11  (10.0.26200) CoreSingleLanguage' Language: 'en' Physical Memory: 16071 MB
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-08-13T06:09:48Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.3.19f1\Editor\Unity.exe
+-batchmode
+-quit
+-nographics
+-projectPath
+C:\2026\study2026\project1\Traffic-Digital-Twin\unity\Smartflow
+-logFile
+C:\2026\study2026\project1\Traffic-Digital-Twin\unity\Smartflow\compile_check.log
+Successfully changed project path to: C:\2026\study2026\project1\Traffic-Digital-Twin\unity\Smartflow
+C:/2026/study2026/project1/Traffic-Digital-Twin/unity/Smartflow
+Exiting without the bug reporter. Application will terminate with return code 1

@@ -14,6 +14,9 @@ show_window: true
 max_frames: 0                 # 0 = ทั้งคลิป
 emit_preview: 20             # 0 = print ทุก event ถ้ารถหนาแน่นใช้ตัวเลขจำกัด
 
+send_to_backend: true        # true = POST spawn event เข้า backend แบบ real-time ด้วย
+backend_url: http://localhost:3000   # ต้องรัน backend (cd backend && npm run dev) ไว้ก่อน
+
 # zones: auto = เดาโซน/เส้นนับจากขนาดเฟรม (ใช้ดูภาพรวมเร็ว ๆ ตัวเลขยังอ้างอิงไม่ได้)
 # หรือใส่ calib เอง เช่น:
 # zones:

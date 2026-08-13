@@ -6,7 +6,8 @@
 ปุ่มระหว่างรัน:  q = ออก   ช่องว่าง = หยุด/เล่นต่อ
 
 **เวอร์ชันนี้ไม่มี lane และไม่มี speed** (ตัดออก 2026-08-09 — ดู ai-worker/CLAUDE.md §5)
-**ไม่ส่งข้อมูลออกนอกเครื่อง** ผลลัพธ์อยู่ใน data/output_results/ และที่พิมพ์บนจอเท่านั้น
+ผลลัพธ์อยู่ใน data/output_results/ เสมอ — ส่งเข้า backend ด้วยถ้าตั้ง send_to_backend: true
+ใน config.yaml (ปิดเป็นค่าเริ่มต้น) ดู ai-worker/CLAUDE.md §4 Roadmap ขั้น 3
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from src.constants import DISPLAY_MAX_SIDE, ZERO_COUNT_WARN_FRAMES
 from src.counter import AnomalyEvent, CountEvent, VehicleCounter
 from src.detector import DetectorError, VehicleDetector
 from src.emitter import SpawnEventWriter
+from src.poster import BackendPoster
 
 HERE = Path(__file__).parent
 AI_WORKER_ROOT = HERE.parent
@@ -110,6 +112,10 @@ def print_header(
         f"imgsz={cfg.imgsz}  conf={cfg.conf_threshold}"
     )
     print(f"device      : {device}")
+    if cfg.send_to_backend:
+        print(f"backend     : ส่งเข้า {cfg.backend_url}/api/ingest แบบ real-time")
+    else:
+        print("backend     : ปิด (ผลลัพธ์อยู่ใน data/output_results/ เท่านั้น)")
     if cfg.is_auto:
         print(
             "zone         : **เดาให้อัตโนมัติ** จากขนาดเฟรม (ยังไม่ได้กำหนดเอง)\n"
@@ -182,6 +188,7 @@ def run(args: argparse.Namespace) -> int:
         echo_limit=cfg.emit_preview or None,
     )
     events.open()
+    poster = BackendPoster(cfg.backend_url) if cfg.send_to_backend else None
 
     frame_index = 0
     warned_zero = False
@@ -201,7 +208,9 @@ def run(args: argparse.Namespace) -> int:
 
                 for event in new_counts:
                     counts_writer.writerow(_row(event, fps))
-                    events.emit(event)
+                    payload = events.emit(event)
+                    if poster is not None:
+                        poster.post(payload)
                 for anomaly in new_anomalies:
                     anomalies_writer.writerow([*_row(anomaly, fps), anomaly.reason])
                 if new_counts or new_anomalies:
@@ -251,8 +260,10 @@ def run(args: argparse.Namespace) -> int:
         counts_handle.close()
         anomalies_handle.close()
         events.close()
+        if poster is not None:
+            poster.close()
 
-    print_summary(vehicle_counter, frame_index, events.emitted, cfg)
+    print_summary(vehicle_counter, frame_index, events.emitted, cfg, poster)
     return 0
 
 
@@ -261,6 +272,7 @@ def print_summary(
     frames_processed: int,
     events_written: int,
     cfg: RunConfig,
+    poster: BackendPoster | None,
 ) -> None:
     print("\n" + "=" * 60)
     print(f"ประมวลผล {frames_processed} เฟรม")
@@ -269,6 +281,8 @@ def print_summary(
     print(
         f"\n  รวมทั้งหมด {vehicle_counter.total_count} คัน  |  spawn event {events_written} รายการ"
     )
+    if poster is not None:
+        print(f"  ส่งเข้า backend: {poster.sent} สำเร็จ  |  {poster.failed} ล้มเหลว")
     print(f"\n  {OUT_DIR / 'counts.csv'}     รายละเอียดรถที่นับได้")
     print(f"  {OUT_DIR / 'anomalies.csv'}  รถที่ถูกปฏิเสธ พร้อมเหตุผล")
     print(f"  {OUT_DIR / 'events.jsonl'}   payload ที่จะส่งให้ Unity (draft, ไม่มี lane/speed)")

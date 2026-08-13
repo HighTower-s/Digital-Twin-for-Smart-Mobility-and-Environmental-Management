@@ -70,6 +70,9 @@ DEFAULT_CAMERA_ID: Final[str] = "cam-chalongkrung-01"
 # เวอร์ชันของ spawn event — 0.2 เพราะตัด lane/speed ออกจาก 0.1-draft เดิม (2026-08-09)
 SPAWN_EVENT_SCHEMA: Final[str] = "spawn-event/0.2-draft"
 
+# backend รันเครื่องเดียวกันในเวอร์ชัน prototype — ตรงกับ backend/.env.example PORT=3000
+DEFAULT_BACKEND_URL: Final[str] = "http://localhost:3000"
+
 # ---------------------------------------------------------------- สี (BGR)
 
 # OpenCV ใช้ BGR ไม่ใช่ RGB

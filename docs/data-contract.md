@@ -5,7 +5,7 @@
 > A breaking change here breaks all 3 modules simultaneously.
 
 > Last reviewed: 2026-08-12
-> Schema version: `1.1.0`
+> Schema version: `1.2.0`
 
 ---
 
@@ -15,7 +15,7 @@ This file defines the JSON structures used for all communication between:
 
 - `AI Worker → Backend` (HTTP POST)
 - `Mock Server → Backend` (HTTP POST)
-- `Backend → Unity` (WebSocket emit)
+- `Backend → Unity` (WebSocket emit — two channels, see below)
 
 The project has **two schemas**, one per project phase — see `../backend/CLAUDE.md`
 for the full phase breakdown:
@@ -26,8 +26,11 @@ for the full phase breakdown:
   the camera line, no position/speed. This is what AI Worker emits today (see
   `ai-worker/data/output_results/events.jsonl`).
 
-All producers/consumers within a phase use **identical payload format**. Backend
-must not transform the payload before forwarding it to Unity.
+All producers/consumers use **identical payload format** on the `spawn` WebSocket
+channel — Backend must not transform that payload before forwarding it. Backend
+also broadcasts a second, Unity-specific channel (`spawn_vehicle`) that
+intentionally wraps and trims the payload — a documented, narrowly-scoped exception
+to the "no transform" rule. See §2c.
 
 ---
 
@@ -117,6 +120,54 @@ One event per vehicle, fired when it crosses the camera's counting line.
 
 No `position` or `speed` fields exist in this schema — Prototype only counts
 vehicles by `type` and `direction`.
+
+---
+
+## 2c. Backend → Unity Broadcast (`spawn_vehicle`) — Unity-specific envelope
+
+Every valid spawn-event ingested triggers **two** WebSocket broadcasts:
+
+- `emit("spawn", event)` — the exact §2b payload, byte-for-byte unmodified. Used by
+  internal tooling (the backend's dev dashboard).
+- `emit("spawn_vehicle", envelope)` — a wrapped, trimmed view built specifically
+  for Unity's consumption.
+
+### Example
+
+```json
+{
+  "event": "spawn_vehicle",
+  "data": {
+    "trackId": "car-0025",
+    "type": "car",
+    "direction": "out",
+    "cameraId": "cam-chalongkrung-01",
+    "timestamp": "2026-08-10T15:42:47.671Z"
+  }
+}
+```
+
+### Field Reference
+
+| Field | Type | Description |
+|---|---|---|
+| `event` | `string` | Always the literal `"spawn_vehicle"` |
+| `data` | `object` | Trimmed vehicle fields — see below |
+| `data.trackId` | `string` | Tracker ID of the vehicle |
+| `data.type` | `string` | Enum: `"car"` \| `"truck"` \| `"motorcycle"` \| `"bus"` |
+| `data.direction` | `string` | Enum: `"in"` \| `"out"` |
+| `data.cameraId` | `string` | Unique camera identifier |
+| `data.timestamp` | `string` (ISO 8601) | UTC time the event was emitted |
+
+### Fields dropped from §2b, and why
+
+- `schema` — an AI Worker/backend versioning tag, not meaningful to Unity's
+  spawning/rendering logic.
+- `videoTimeSec` / `frameCount` — meaningful only inside the AI Worker's own
+  source-video processing (offset into the analyzed video file); no real-world or
+  simulation-time meaning for Unity.
+- `confidence` — a detection-quality signal already acted on server-side
+  (validation, counting); Unity doesn't need it to spawn or animate a vehicle.
 
 ---
 
@@ -244,7 +295,7 @@ the rejection reason and the raw payload (truncated to 500 chars).
 - **MINOR** bump = new optional field added → backwards compatible
 - **PATCH** bump = description / comment clarification only
 
-Current version: `1.1.0`
+Current version: `1.2.0`
 
 ---
 
@@ -254,6 +305,7 @@ Current version: `1.1.0`
 |---|---|---|---|
 | 1.0.0 | 2026-06-12 | initial | Initial schema based on project proposal |
 | 1.1.0 | 2026-08-12 | backend redesign | Added §2b Prototype spawn-event schema; added `"bus"` to the `type` enum in both schemas |
+| 1.2.0 | 2026-08-12 | unity envelope | Added §2c `spawn_vehicle` broadcast — wrapped + trimmed Unity-specific view alongside the unchanged `spawn` channel |
 
 > Before modifying this schema, confirm with all module owners.
 > After modifying, bump the version, update the changelog above,

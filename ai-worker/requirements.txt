@@ -1,8 +1,9 @@
-# AI Worker — วิเคราะห์วิดีโอในเครื่อง ไม่มีการเชื่อมต่อเครือข่ายในเวอร์ชันนี้
+# AI Worker — วิเคราะห์วิดีโอในเครื่อง
 ultralytics>=8.2.0
 opencv-python>=4.9
 numpy>=1.26
 pyyaml>=6.0
+httpx>=0.27          # POST spawn event เข้า backend/api/ingest (เปิดด้วย send_to_backend: true)
 
 # เครื่องมือพัฒนา
 pytest>=8.0

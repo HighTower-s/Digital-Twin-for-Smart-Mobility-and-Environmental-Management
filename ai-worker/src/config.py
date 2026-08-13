@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from src.constants import (
+    DEFAULT_BACKEND_URL,
     DEFAULT_CAMERA_ID,
     DEFAULT_CONF_THRESHOLD,
     DEFAULT_IMGSZ,
@@ -42,6 +43,8 @@ class RunConfig:
     emit_preview: int
     zones: tuple[Zone, ...]
     is_auto: bool = False
+    send_to_backend: bool = False
+    backend_url: str = DEFAULT_BACKEND_URL
 
 
 def auto_zones(frame_size: tuple[int, int]) -> tuple[Zone, ...]:
@@ -144,6 +147,8 @@ def build_run_config(
         emit_preview=int(raw.get("emit_preview", 0)),
         zones=zones,
         is_auto=is_auto,
+        send_to_backend=bool(raw.get("send_to_backend", False)),
+        backend_url=str(raw.get("backend_url", DEFAULT_BACKEND_URL)),
     )
 
 

@@ -16,7 +16,10 @@ and Unity. What exactly it validates/broadcasts differs by phase — see below.
    depends on phase (`spawn` in Prototype, `frame` in MVP)
 4. Exposes `GET /health` for uptime monitoring
 
-**Never transform the payload** before forwarding to Unity — emit exactly what was received.
+**Never transform the payload on the `spawn`/`frame` channel** — emit exactly what
+was received. The one documented exception (Prototype only): `spawn_vehicle`, a
+second broadcast alongside `spawn` that wraps and trims the payload specifically
+for Unity — see `docs/data-contract.md` §2c.
 
 ---
 
@@ -30,7 +33,7 @@ extends it — it does not replace it.
 |---|---|---|
 | Ingest schema | `spawn-event` — one vehicle per POST | `frame` — `vehicles[]` with position + speed |
 | Payload has position/speed | ❌ no | ✅ yes |
-| WebSocket emit | `emit("spawn", event)` | `emit("frame", frame)` |
+| WebSocket emit | `emit("spawn", event)` + `emit("spawn_vehicle", envelope)` for Unity | `emit("frame", frame)` |
 | Counting | in-memory counters + `GET /api/stats` | counters optional, carried over |
 | Database | ❌ none — no TimescaleDB, no `db/` module | ✅ async TimescaleDB log, gated by `ENABLE_DB_LOGGING` (default `false`) |
 | Vehicle types | `car`, `truck`, `motorcycle`, `bus` | `car`, `truck`, `motorcycle`, `bus` |
@@ -49,10 +52,11 @@ building storage for data that doesn't exist. See `docs/project-status.md`
 
 | Method + Path | Purpose |
 |---|---|
-| `POST /api/ingest` | Receive one spawn-event, validate, update counters, `emit("spawn", event)` |
+| `POST /api/ingest` | Receive one spawn-event, validate, update counters, `emit("spawn", event)` + `emit("spawn_vehicle", envelope)` |
 | `GET /api/stats` | Return current in-memory counters |
 | `POST /api/stats/reset` | Zero all counters (demo convenience) |
 | `GET /health` | Uptime check |
+| `GET /` | Serve live dev dashboard (`backend/src/view/index.html`) — connection status, `/api/stats` summary, raw `spawn` payload feed. Dev-only, no auth. |
 
 ### Spawn-event schema (from AI Worker output)
 
@@ -72,6 +76,30 @@ building storage for data that doesn't exist. See `docs/project-status.md`
 
 No `position`, no `speed` — the Prototype only tracks that a vehicle of a given
 `type` crossed the camera line in a given `direction`.
+
+### `spawn_vehicle` — Unity-specific broadcast
+
+Alongside `emit("spawn", event)` (unmodified), backend also emits
+`emit("spawn_vehicle", envelope)` — a wrapped, trimmed view built via the pure
+function `toUnitySpawnPayload()` in `src/sockets/unityPayload.ts`:
+
+```json
+{
+  "event": "spawn_vehicle",
+  "data": {
+    "trackId": "car-0025",
+    "type": "car",
+    "direction": "out",
+    "cameraId": "cam-chalongkrung-01",
+    "timestamp": "2026-08-10T15:42:47.671Z"
+  }
+}
+```
+
+Drops `schema`, `videoTimeSec`, `frameCount`, `confidence` — see
+`docs/data-contract.md` §2c for the full field reference and rationale. The
+backend's dev dashboard (`GET /`) still listens to the unmodified `spawn` channel,
+not `spawn_vehicle` — it is unaffected by this.
 
 ### Validation rules
 

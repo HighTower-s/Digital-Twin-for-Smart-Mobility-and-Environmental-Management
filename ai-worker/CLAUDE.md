@@ -2,7 +2,7 @@
 
 > อ่าน `../CLAUDE.md` และ `../docs/architecture.md` ก่อนไฟล์นี้
 > ไฟล์นี้ครอบคลุมเฉพาะ context ของ AI Worker
-> ทบทวนล่าสุด: 2026-08-09
+> ทบทวนล่าสุด: 2026-08-12
 
 ---
 
@@ -14,7 +14,7 @@
 | ตำแหน่ง (x, z) | พิกัดโลกจริง (เมตร) | **ไม่มี** — นับอย่างเดียว ไม่คำนวณตำแหน่ง |
 | ความเร็ว | วัดจากภาพจริง | **ไม่มี** — ตัดออกจนกว่าจะวัดจริงได้ (§5) |
 | เลนที่วิ่ง | ระบุได้ | **ไม่มี** — ตัดออกจนกว่าจะวัดจริงได้ (§5) |
-| ปลายทาง | สตรีมเข้า backend ต่อเนื่อง | ไฟล์ใน `data/output_results/` เท่านั้น |
+| ปลายทาง | สตรีมเข้า backend ต่อเนื่อง | ไฟล์ใน `data/output_results/` เสมอ + POST เข้า backend ด้วยถ้าเปิด `send_to_backend: true` (ปิดเป็นค่าเริ่มต้น) |
 
 ของที่โค้ดทำได้ **ตอนนี้** คือชั้น Prototype (§2) ส่วน MVP Main (§1) คือเป้าที่กำลังไต่ไปหา
 
@@ -56,7 +56,8 @@ main.py  (อ่าน config.yaml)
   → detector.py  YOLOv8 + ByteTrack  (4 ชนิด: car / motorcycle / bus / truck)
   → counter.py   ข้ามเส้น → โหวตชนิด+ล็อก → ตรวจทิศ (toward/away) → กันนับซ้ำ → anomaly
   → emitter.py   spawn event → data/output_results/events.jsonl
-  → สรุปตอนจบ
+  → poster.py    (ถ้า send_to_backend: true) POST payload เดียวกัน → backend/api/ingest
+  → สรุปตอนจบ (รวมจำนวนที่ส่ง backend สำเร็จ/ล้มเหลว ถ้าเปิดใช้)
 ```
 
 ### track ทั้งคลิป → ออกเป็น JSON/CSV (`data/output_results/`)
@@ -85,9 +86,10 @@ src/
   config.py     โหลด config.yaml + auto_zones + validation                   [บริสุทธิ์]
   constants.py  ค่าคงที่ทั้งหมด (COCO map, ทิศ, เหตุผล, สี)                    [บริสุทธิ์]
   emitter.py    spawn event → events.jsonl                                   [บริสุทธิ์]
+  poster.py     POST spawn event → backend/api/ingest (opt-in, fail-safe)     [httpx]
   overlay.py    วาดกล่อง/โซน/เส้น/HUD                                        [cv2]
   calibrate.py  เครื่องมือคลิกหาพิกัด polygon/line จากเฟรมจริง → print YAML     [cv2]
-tests/          test_counter.py, test_config.py, test_emitter.py, test_detector.py
+tests/          test_counter.py, test_config.py, test_emitter.py, test_detector.py, test_poster.py
 config.yaml     ตั้งค่าทั้งหมด (path วิดีโอ, โมเดล, conf, imgsz, โซน)
 ```
 
@@ -99,10 +101,13 @@ config.yaml     ตั้งค่าทั้งหมด (path วิดีโ
 
 ## 4. Roadmap → ส่งข้อมูลแบบ real-time
 
-1. ✅ **Prototype (offline, ไม่มี lane/speed)** — mp4 → JSON ทั้งคลิป (`events.jsonl`) ← *อยู่ตรงนี้*
+1. ✅ **Prototype (offline, ไม่มี lane/speed)** — mp4 → JSON ทั้งคลิป (`events.jsonl`)
 2. ⏳ **เพิ่ม lane + speed จริง** — งานแยกในอนาคต (ดู §5 ว่าทำไมยังไม่ทำตอนนี้)
-3. ⏳ **Live bridge** — แปลง spawn event → payload ตาม `data-contract.md` → POST เข้า backend
-   (ต้องออกแบบใหม่ — ยังไม่มีตำแหน่ง/ความเร็วจริงให้ใส่ payload)
+3. ✅ **Live bridge** (2026-08-12) — `poster.py` ส่ง spawn event เดียวกับที่เขียนลง
+   `events.jsonl` เข้า `backend/api/ingest` แบบ real-time (ทีละ event ตอนข้ามเส้น) เปิดด้วย
+   `send_to_backend: true` ใน `config.yaml` (ปิดเป็นค่าเริ่มต้น) ทดสอบกับ backend ตัวจริงแล้ว —
+   spawn-event schema ตรงกับ `validateSpawnEvent()` ของ backend 100% ไม่ต้องแปลง field ใด ๆ
+   backend ล่ม/ปฏิเสธไม่ทำให้การนับหยุด (log แล้วนับต่อ) ← *อยู่ตรงนี้*
 4. ⏳ **กำหนดโซนเอง + วัดความแม่นยำ** — ✅ เครื่องมือคลิก (`calibrate.py`) มีแล้ว เหลือ: นับมือเทียบ
 5. ⏳ **MVP Main** — เปลี่ยนแหล่งเป็น RTSP + หา position/speed จริง (homography หรือวิธีอื่น)
 
@@ -119,7 +124,9 @@ config.yaml     ตั้งค่าทั้งหมด (path วิดีโ
 
 ผลตามมา: ของเดิม (`road.py`/`poster.py`/`replay.py`) ที่จำลองตำแหน่งจาก lane+speed
 เพื่อส่งเข้า backend ถูกลบไปด้วย เพราะไม่มี lane/speed ให้คำนวณอีกต่อไป ต้องออกแบบสะพาน
-ไปหา backend ใหม่ตอนทำ Roadmap ขั้น 3
+ไปหา backend ใหม่ตอนทำ Roadmap ขั้น 3 — **ทำแล้ว**: `poster.py` ตัวใหม่ (2026-08-12) ส่ง
+spawn event ตรง ๆ ไม่ผ่านการจำลองตำแหน่งแบบเดิม เพราะ backend รับ spawn-event schema
+(ไม่มี position/speed) ได้อยู่แล้ว ไม่ต้องรอมี lane/speed จริงก่อนถึงจะเชื่อมได้
 
 ---
 
@@ -131,6 +138,9 @@ cd ai-worker
 python -m src.main                      # ใช้ค่าจาก config.yaml
 python -m src.main --config other.yaml  # ใช้ config อื่น (ตัวเลือก)
 ```
+
+ส่งเข้า backend ด้วย: ตั้ง `send_to_backend: true` ใน `config.yaml` แล้วรัน backend ไว้ก่อน
+(`cd backend && npm run dev`) — ปิดเป็นค่าเริ่มต้น เปิดค้างไว้ก็ยังเขียน `events.jsonl` ปกติ
 
 เทส: `python -m pytest` · lint: `python -m ruff check .` · format: `python -m black --check .`
 
@@ -150,7 +160,8 @@ python -m src.main --config other.yaml  # ใช้ config อื่น (ตั�
 ## 8. ⚠️ จุดที่ยังค้าง
 
 - **ไม่มี lane/speed** — ตั้งใจตัดออก จะกลับมาเพิ่มเป็นงานแยก (§5)
-- **ไม่เชื่อมกับ backend/Unity ในรอบนี้** — ต้องออกแบบสะพานใหม่ตอนทำ Roadmap ขั้น 3
+- **เชื่อมกับ backend แล้ว (§4 ขั้น 3) แต่ Unity ยังไม่รองรับ** — Unity ยังไม่มี handler รับ
+  Socket.io event `"spawn"` และยังไม่มีโมเดล/prefab สำหรับ `type: "bus"`
 - **ยังไม่ได้นับมือเทียบวัดความแม่นยำ** — `calibrate.py` มีแล้ว (ขั้นตอน: `python -m src.calibrate`
   → คลิก polygon+line ทีละ zone → ก็อป YAML ที่ print ออกมาใส่ `config.yaml`)
 - **`architecture.md` §2** ยังเขียน "homography" อยู่ — ต้อง reconcile กับ pivot ภายหลัง

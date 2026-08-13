@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Server as SocketServer } from 'socket.io';
 import { Direction, LOG_TRUNCATE, VehicleType } from '../constants';
 import { vehicleCounters } from '../counters/vehicleCounters';
+import { toUnitySpawnPayload } from '../sockets/unityPayload';
 import { SpawnEvent, validateSpawnEvent } from '../validation/validateSpawnEvent';
 
 export function createIngestHandler(io: SocketServer) {
@@ -19,6 +20,7 @@ export function createIngestHandler(io: SocketServer) {
     vehicleCounters.record(event.type as VehicleType, event.direction as Direction, event.cameraId);
 
     io.emit('spawn', event);
+    io.emit('spawn_vehicle', toUnitySpawnPayload(event));
 
     res.status(200).json({ ok: true });
   };
