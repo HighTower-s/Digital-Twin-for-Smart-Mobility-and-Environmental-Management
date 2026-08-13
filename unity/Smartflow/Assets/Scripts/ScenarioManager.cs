@@ -7,19 +7,19 @@ public class ScenarioManager : MonoBehaviour
 {
     public static ScenarioManager Instance; // ทำเป็น Singleton เพื่อให้รถเรียกใช้ได้ง่าย
 
-[System.Serializable]
-    public class TrafficFlow
-    {
-        public string direction; // ค่าจะเป็น "inbound" หรือ "outbound"
-        public int motorcycleCount;
-        public int carCount;
-    }
+//[System.Serializable]
+//    public class TrafficFlow
+//    {
+//        public string direction; // ค่าจะเป็น "inbound" หรือ "outbound"
+//        public int motorcycleCount;
+//        public int carCount;
+//    }
 
-    [System.Serializable]
-    public class VehicleData
-    {
-        public TrafficFlow[] flows; // เก็บข้อมูลเป็นลิตส์ของแต่ละทิศทาง
-    }
+//    [System.Serializable]
+//    public class VehicleData
+//    {
+//        public TrafficFlow[] flows; // เก็บข้อมูลเป็นลิตส์ของแต่ละทิศทาง
+//    }
 
     [System.Serializable]
     public class ScenarioConfig
@@ -50,15 +50,15 @@ public class ScenarioManager : MonoBehaviour
     public WaypointRoute outboundRoute;  // เส้นทางขาออก
 
     // เปลี่ยน Mockup JSON ให้เป็นแบบใหม่
-    private string mockJsonData = "{\"flows\": [{\"direction\": \"inbound\", \"motorcycleCount\": 2, \"carCount\": 15}, {\"direction\": \"outbound\", \"motorcycleCount\": 2, \"carCount\": 15}]}";
+    //private string mockJsonData = "{\"flows\": [{\"direction\": \"inbound\", \"motorcycleCount\": 2, \"carCount\": 15}, {\"direction\": \"outbound\", \"motorcycleCount\": 2, \"carCount\": 15}]}";
 
 
     // เก็บข้อมูลว่ารถคันที่จะ Spawn ต้องเป็นประเภทไหน และวิ่งฝั่งไหน
-    public class SpawnTicket
-    {
-        public bool isMotorcycle;
-        public WaypointRoute route;
-    }
+    //public class SpawnTicket
+    //{
+    //    public bool isMotorcycle;
+    //    public WaypointRoute route;
+    //}
 
     private Queue<string> recentTrackIds = new Queue<string>();
 
@@ -66,10 +66,9 @@ public class ScenarioManager : MonoBehaviour
     public ScenarioConfig[] scenarios;
 
     // ข้อมูล JSON จำลอง (เก็บแค่จำนวนรถ)
-    //private string mockJsonData = "{\"motorcycleCount\": 2, \"carCount\": 10}";
-    private VehicleData vehicleCounts; // ตัวแปรเก็บจำนวนรถที่อ่านจาก JSON
+    //private VehicleData vehicleCounts; // ตัวแปรเก็บจำนวนรถที่อ่านจาก JSON
 
-    private Coroutine spawnCoroutine;
+    //private Coroutine spawnCoroutine;
 
     // --- ระบบ Object Pool ---
     private Dictionary<GameObject, Queue<GameObject>> vehiclePools = new Dictionary<GameObject, Queue<GameObject>>();
@@ -85,7 +84,7 @@ public class ScenarioManager : MonoBehaviour
     void Start()
     {
         // 1. อ่านข้อมูลจำนวนรถจาก JSON
-        vehicleCounts = JsonUtility.FromJson<VehicleData>(mockJsonData);
+        //vehicleCounts = JsonUtility.FromJson<VehicleData>(mockJsonData);
 
         // 2. ตั้งค่า UI Dropdown
         SetupDropdown();
@@ -117,10 +116,10 @@ public class ScenarioManager : MonoBehaviour
         // ล้างรถชุดเก่า (ส่งคืน Pool)
         ClearOldVehicles();
 
-        if (spawnCoroutine != null) StopCoroutine(spawnCoroutine);
+        //if (spawnCoroutine != null) StopCoroutine(spawnCoroutine);
         
         // เริ่มสร้างรถชุดใหม่
-        spawnCoroutine = StartCoroutine(SpawnVehiclesRoutine(selectedConfig));
+        //spawnCoroutine = StartCoroutine(SpawnVehiclesRoutine(selectedConfig));
     }
 
     // ---------------------------------------------------
