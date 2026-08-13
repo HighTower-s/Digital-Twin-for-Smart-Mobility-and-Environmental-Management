@@ -21,6 +21,16 @@ public class ScenarioManager : MonoBehaviour
 //        public TrafficFlow[] flows; // เก็บข้อมูลเป็นลิตส์ของแต่ละทิศทาง
 //    }
 
+    [Header("UI References")]
+    public TMP_Dropdown scenarioDropdown;
+    public TMP_Text avgSpeedText;
+    
+    // 🟢 เติมบรรทัดพวกนี้เข้าไป เพื่อให้ตัวแปรมีตัวตน
+    public TMP_Text inboundCountText;  
+    public TMP_Text outboundCountText; 
+    private int inboundTotalCount = 0;
+    private int outboundTotalCount = 0;
+
     [System.Serializable]
     public class ScenarioConfig
     {
@@ -34,9 +44,6 @@ public class ScenarioManager : MonoBehaviour
         public float[] laneOffsets = { 0f }; 
     }
 
-    [Header("UI References")]
-    public TMP_Dropdown scenarioDropdown;
-    public TMP_Text avgSpeedText;
 
     [Header("Vehicle Prefabs & Spawn")]
     public GameObject[] motorcyclePrefabs; 
@@ -75,6 +82,7 @@ public class ScenarioManager : MonoBehaviour
     
     // ลิสต์รถที่กำลังวิ่งอยู่บนถนน (ประกาศแค่รอบเดียวพอครับ)
     private List<GameObject> activeVehicles = new List<GameObject>();
+    
 
     void Awake()
     {
@@ -252,6 +260,15 @@ public class ScenarioManager : MonoBehaviour
         vehicleScript.waypoints = routePath.waypoints; 
 
         vehicleScript.ResetVehicle();
+    }
+
+    private void UpdateVehicleCountUI()
+    {
+        if (inboundCountText != null) 
+            inboundCountText.text = $"Inbound: {inboundTotalCount}";
+        
+        if (outboundCountText != null) 
+            outboundCountText.text = $"Outbound: {outboundTotalCount}";
     }
     // เพิ่มฟังก์ชันนี้ไว้ใน ScenarioManager.cs
     public void SpawnVehicleFromNetwork(SmartFlow.Network.SpawnVehicleData netData)
