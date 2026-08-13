@@ -1,30 +1,34 @@
 # Smart Flow — Digital Twin for KMITL Smart Mobility
 
-> Senior project — KMITL, Faculty of IT | Team: 2 developers | Phase: MVP (3 months)
+> Senior project — KMITL, Faculty of IT | Team: 2 developers | Phase: Prototype (MVP in progress)
 
-Real-time Digital Twin that ingests CCTV footage, detects vehicles with YOLOv8,
-and renders their positions in a Unity WebGL scene — second by second.
+Digital Twin that ingests traffic video, counts vehicles crossing a line with
+YOLOv8 (type + direction), and renders spawn events live in a Unity scene.
 
 ---
 
-## Architecture (Quick View)
+## Architecture (Prototype — current)
 
 ```
-CCTV (RTSP)
+video file (.mp4)
     │
     ▼
-┌─────────────┐   HTTP POST /api/ingest   ┌─────────────┐   WebSocket (emit "frame")   ┌──────────────┐
-│  AI Worker  │ ────────────────────────▶ │   Backend   │ ──────────────────────────▶ │    Unity     │
-│  (Python)   │                           │  (Node.js)  │                              │   (WebGL)    │
-└─────────────┘                           └─────────────┘                              └──────────────┘
-                                                 │
-                                                 ▼
-                                          ┌─────────────┐
-                                          │ TimescaleDB │
-                                          └─────────────┘
+┌─────────────┐   HTTP POST /api/ingest   ┌─────────────┐   WebSocket ("spawn" + "spawn_vehicle")   ┌──────────────┐
+│  AI Worker  │ ────────────────────────▶ │   Backend   │ ──────────────────────────────────────▶ │    Unity     │
+│  (Python)   │      spawn-event JSON     │  (Node.js)  │        raw + wrapped/trimmed payload      │              │
+└─────────────┘                           └─────────────┘                                           └──────────────┘
 ```
 
-During development, **Mock Server** replaces AI Worker (same endpoint, same payload).
+- **No database in this phase** — Backend keeps vehicle counts in memory only
+  (`GET /api/stats`). TimescaleDB is planned for a later MVP phase, once the
+  pipeline produces real positions/speed again — see `docs/architecture.md`.
+- **No mock-server or RTSP in this phase** — AI Worker reads an uploaded/local
+  video file, not a live camera feed. See `ai-worker/CLAUDE.md` for the roadmap
+  back to real-time RTSP + position tracking.
+- Backend broadcasts **two** WebSocket events per spawn-event: `"spawn"` (raw,
+  unmodified — used by the backend's own dev dashboard) and `"spawn_vehicle"`
+  (wrapped + trimmed to only the fields Unity needs) — see
+  `docs/data-contract.md` §2c.
 
 ---
 
@@ -32,51 +36,83 @@ During development, **Mock Server** replaces AI Worker (same endpoint, same payl
 
 | Tool | Version | Notes |
 |---|---|---|
-| Node.js | 20 LTS | Backend + Mock Server |
+| Node.js | 20 LTS | Backend |
 | Python | 3.11 | AI Worker |
-| Docker Desktop | latest | TimescaleDB |
-| Unity | 2022 LTS | WebGL build |
+| Unity | 6000.3.19f1 | Open via Unity Hub — installs this exact version if missing |
+| git | any recent | Required — Unity resolves the `SocketIOUnity` package directly from a GitHub URL |
+| NVIDIA GPU (optional) | CUDA 12.8+ compatible | Speeds up YOLO inference ~10x+. Not required — falls back to CPU |
 
 ---
 
-## Quick Start (Development with Mock Server)
+## Quick Start
 
-### 1. Copy environment files
-
-```bash
-cp backend/.env.example backend/.env
-cp ai-worker/.env.example ai-worker/.env
-# fill in values before continuing
-```
-
-### 2. Start TimescaleDB
+### 0. Check out the working branch
 
 ```bash
-docker compose up -d
+git checkout conect-ai-worker-backend-unity
+git pull
 ```
+This branch has the integrated Prototype work (backend, AI Worker, Unity connection).
+`main` is behind and does not yet reflect this.
 
-### 3. Start Backend
+### 1. Backend
 
 ```bash
 cd backend
 npm install
+cp .env.example .env      # optional — PORT defaults to 3000 either way
 npm run dev
-# → Listening on http://localhost:3000
+# → Backend running on http://localhost:3000
+# → open http://localhost:3000/ for the live dev dashboard
 ```
 
-### 4. Start Mock Server
+### 2. AI Worker
 
 ```bash
-cd mock-server
-npm install
-node generator.js --scenario normal
-# → POSTing to http://localhost:3000/api/ingest every 1s
+cd ai-worker
+python -m venv .venv && .venv\Scripts\activate    # Windows
+pip install -r requirements.txt
 ```
 
-### 5. Open Unity
+`ai-worker/**/data/` is entirely gitignored (video files, model weights, output
+are never committed) — set up locally:
 
-Open the `unity/` folder in Unity 2022 LTS, press Play.
-The scene connects to `ws://localhost:3000` and renders incoming vehicles.
+```bash
+mkdir -p data/input_videos data/output_results data/weights
+```
+
+- Put your own `.mp4` in `data/input_videos/`, then point `video:` in
+  `config.yaml` at it.
+- `yolov8s.pt` doesn't need to be downloaded manually — `ultralytics` fetches it
+  automatically on first run if `data/weights/` is empty.
+
+**If you have an NVIDIA GPU**, `pip install -r requirements.txt` alone installs
+a **CPU-only** build of torch (much slower). Reinstall matched to your GPU:
+
+```bash
+pip uninstall torch torchvision -y
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+```
+`cu128` matches RTX 40/50-series (Blackwell/Ada). Check
+[pytorch.org](https://pytorch.org/get-started/locally/) for the right index URL
+if your card is older/different. No GPU → skip this, CPU-only still works, just slower.
+
+Run it:
+```bash
+python -m src.main                 # writes data/output_results/{events.jsonl,counts.csv,anomalies.csv}
+```
+Set `send_to_backend: true` in `config.yaml` (off by default) to also POST each
+spawn-event to the running backend in real time.
+
+### 3. Unity
+
+1. Open `unity/Smartflow/` via **Unity Hub** (installs `6000.3.19f1` if you don't have it).
+2. First open resolves `Packages/manifest.json` automatically, including
+   `com.itisnajim.socketiounity` pulled directly from GitHub — needs `git` on
+   your PATH and internet access.
+3. Check the Console for compile errors (should be none).
+4. With the backend running, press Play — a Socket.io client in the scene
+   connects and listens for `"spawn_vehicle"` events.
 
 ---
 
@@ -84,50 +120,33 @@ The scene connects to `ws://localhost:3000` and renders incoming vehicles.
 
 | Folder | Language | Role |
 |---|---|---|
-| `ai-worker/` | Python 3.11 | RTSP capture → YOLOv8 → Homography → POST |
-| `backend/` | Node.js 20 | Validate → WebSocket broadcast → DB log |
-| `unity/` | C# / Unity | WebSocket client → Object Pool → Lerp render |
-| `mock-server/` | Node.js 20 | Simulates AI Worker for dev and demo |
+| `ai-worker/` | Python 3.11 | Video file → YOLOv8 + ByteTrack → line-crossing counter → spawn-event JSON |
+| `backend/` | Node.js 20 | Validate → in-memory counters → WebSocket broadcast (`spawn` + `spawn_vehicle`) |
+| `unity/Smartflow/` | C# / Unity | Socket.io client → renders spawn events |
 | `docs/` | Markdown | Architecture, data contract, project status |
 
 ---
 
-## API Reference
+## API Reference (Prototype)
 
 ### `POST /api/ingest`
-Accepts a JSON payload (see `docs/data-contract.md`).
-- `200 OK` — payload accepted and broadcast
-- `400 Bad Request` — validation failed (body contains reason)
+Accepts one spawn-event JSON (see `docs/data-contract.md` §2b).
+- `200 OK { ok: true }` — accepted, counted, and broadcast
+- `400 Bad Request { error: reason }` — validation failed
+
+### `GET /api/stats`
+Returns in-memory vehicle counts by type × direction. `POST /api/stats/reset` zeroes them.
 
 ### `GET /health`
-Returns `{ "status": "ok" }`.
+Returns `{ "status": "ok", "timestamp": ... }`.
+
+### `GET /`
+Live dev dashboard — connection status, `/api/stats` summary, raw `spawn` payload feed.
 
 ### WebSocket
-Connect to `ws://localhost:3000`. Listen for event `"frame"` — payload is identical to the ingest body.
-
----
-
-## Mock Server Scenarios
-
-```bash
-node generator.js --scenario normal      # 5 cars, 30–50 km/h
-node generator.js --scenario congestion  # 15 cars, 2–15 km/h
-node generator.js --scenario edge        # invalid payloads (validation testing)
-```
-
----
-
-## Database (TimescaleDB)
-
-```
-Host:     localhost
-Port:     5432
-Database: smartflow
-User:     smartflow
-Password: set in .env
-```
-
-`docker compose up -d` starts the DB. Schema is initialized automatically from `infra/db/init.sql`.
+Connect to `ws://localhost:3000`.
+- `"spawn"` — raw spawn-event, unmodified (same shape as the POST body)
+- `"spawn_vehicle"` — wrapped + trimmed for Unity: `{ event: "spawn_vehicle", data: { trackId, type, direction, cameraId, timestamp } }`
 
 ---
 
@@ -135,8 +154,8 @@ Password: set in .env
 
 | File | Purpose |
 |---|---|
-| `backend/.env` | Port, DB connection |
-| `ai-worker/.env` | RTSP URL, backend URL, model path |
+| `backend/.env` | `PORT` (default 3000). MVP-only DB vars are commented out — unused in Prototype |
+| `ai-worker/config.yaml` | Video path, model, zones, `send_to_backend`, `backend_url` — not a `.env`, plain YAML |
 
 **Never commit `.env` files.**
 
@@ -150,3 +169,4 @@ Password: set in .env
 | `docs/data-contract.md` | JSON schema — source of truth for all modules |
 | `docs/project-status.md` | Milestones, blockers, session log |
 | `CLAUDE.md` | Rules and context for AI assistants |
+| `ai-worker/CLAUDE.md`, `backend/CLAUDE.md`, `unity/CLAUDE.md` | Module-specific context |
