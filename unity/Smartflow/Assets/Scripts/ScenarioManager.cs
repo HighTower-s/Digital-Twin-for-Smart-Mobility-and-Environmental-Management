@@ -60,6 +60,7 @@ public class ScenarioManager : MonoBehaviour
         public WaypointRoute route;
     }
 
+    private Queue<string> recentTrackIds = new Queue<string>();
 
     [Header("Scenario Configurations")]
     public ScenarioConfig[] scenarios;
@@ -174,59 +175,59 @@ public class ScenarioManager : MonoBehaviour
     // 🟢 ส่วนของการ Spawn รถ 🟢
     // ---------------------------------------------------
 
-    IEnumerator SpawnVehiclesRoutine(ScenarioConfig config)
-    {
-        // 1. สร้างกล่องเปล่าเพื่อเก็บตั๋วรถทุกคัน
-        List<SpawnTicket> spawnBox = new List<SpawnTicket>();
+    // IEnumerator SpawnVehiclesRoutine(ScenarioConfig config)
+    // {
+    //     // 1. สร้างกล่องเปล่าเพื่อเก็บตั๋วรถทุกคัน
+    //     List<SpawnTicket> spawnBox = new List<SpawnTicket>();
 
-        // 2. อ่านข้อมูลจาก JSON แล้วสร้างตั๋วใส่ลงกล่อง
-        foreach (TrafficFlow flow in vehicleCounts.flows)
-        {
-            WaypointRoute selectedRoute = (flow.direction.ToLower() == "inbound") ? inboundRoute : outboundRoute;
+    //     // 2. อ่านข้อมูลจาก JSON แล้วสร้างตั๋วใส่ลงกล่อง
+    //     foreach (TrafficFlow flow in vehicleCounts.flows)
+    //     {
+    //         WaypointRoute selectedRoute = (flow.direction.ToLower() == "inbound") ? inboundRoute : outboundRoute;
 
-            // ใส่ตั๋วมอเตอร์ไซค์
-            for (int i = 0; i < flow.motorcycleCount; i++)
-            {
-                spawnBox.Add(new SpawnTicket { isMotorcycle = true, route = selectedRoute });
-            }
+    //         // ใส่ตั๋วมอเตอร์ไซค์
+    //         for (int i = 0; i < flow.motorcycleCount; i++)
+    //         {
+    //             spawnBox.Add(new SpawnTicket { isMotorcycle = true, route = selectedRoute });
+    //         }
 
-            // ใส่ตั๋วรถยนต์
-            for (int i = 0; i < flow.carCount; i++)
-            {
-                spawnBox.Add(new SpawnTicket { isMotorcycle = false, route = selectedRoute });
-            }
-        }
+    //         // ใส่ตั๋วรถยนต์
+    //         for (int i = 0; i < flow.carCount; i++)
+    //         {
+    //             spawnBox.Add(new SpawnTicket { isMotorcycle = false, route = selectedRoute });
+    //         }
+    //     }
 
-        // 3. เริ่มหยิบตั๋วออกจากกล่องแบบสุ่มทีละใบ จนกว่ากล่องจะว่างเปล่า
-        while (spawnBox.Count > 0)
-        {
-            // สุ่มล้วงตั๋วขึ้นมา 1 ใบ
-            int randomIndex = Random.Range(0, spawnBox.Count);
-            SpawnTicket ticket = spawnBox[randomIndex];
+    //     // 3. เริ่มหยิบตั๋วออกจากกล่องแบบสุ่มทีละใบ จนกว่ากล่องจะว่างเปล่า
+    //     while (spawnBox.Count > 0)
+    //     {
+    //         // สุ่มล้วงตั๋วขึ้นมา 1 ใบ
+    //         int randomIndex = Random.Range(0, spawnBox.Count);
+    //         SpawnTicket ticket = spawnBox[randomIndex];
 
-            // 4. เตรียม Prefab และเรียกใช้งาน
-            GameObject prefabToSpawn;
-            if (ticket.isMotorcycle)
-            {
-                int randomMotoModel = Random.Range(0, motorcyclePrefabs.Length);
-                prefabToSpawn = motorcyclePrefabs[randomMotoModel];
-            }
-            else
-            {
-                int randomCarModel = Random.Range(0, carPrefabs.Length);
-                prefabToSpawn = carPrefabs[randomCarModel];
-            }
+    //         // 4. เตรียม Prefab และเรียกใช้งาน
+    //         GameObject prefabToSpawn;
+    //         if (ticket.isMotorcycle)
+    //         {
+    //             int randomMotoModel = Random.Range(0, motorcyclePrefabs.Length);
+    //             prefabToSpawn = motorcyclePrefabs[randomMotoModel];
+    //         }
+    //         else
+    //         {
+    //             int randomCarModel = Random.Range(0, carPrefabs.Length);
+    //             prefabToSpawn = carPrefabs[randomCarModel];
+    //         }
 
-            // สั่ง Spawn รถ
-            SpawnSingleVehicle(prefabToSpawn, config, ticket.route);
+    //         // สั่ง Spawn รถ
+    //         SpawnSingleVehicle(prefabToSpawn, config, ticket.route);
 
-            // 5. หยิบตั๋วใบนี้ทิ้งไป จะได้ไม่ซ้ำ
-            spawnBox.RemoveAt(randomIndex);
+    //         // 5. หยิบตั๋วใบนี้ทิ้งไป จะได้ไม่ซ้ำ
+    //         spawnBox.RemoveAt(randomIndex);
 
-            // รอเวลาหน่วงก่อนหยิบตั๋วใบถัดไป
-            yield return new WaitForSeconds(spawnDelay);
-        }
-    }
+    //         // รอเวลาหน่วงก่อนหยิบตั๋วใบถัดไป
+    //         yield return new WaitForSeconds(spawnDelay);
+    //     }
+    // }
 
     // 🟢 อัปเดตฟังก์ชันนี้ ให้รับค่า selectedRoute เข้ามาด้วย
     void SpawnSingleVehicle(GameObject prefab, ScenarioConfig config, WaypointRoute routePath)
@@ -256,6 +257,18 @@ public class ScenarioManager : MonoBehaviour
     // เพิ่มฟังก์ชันนี้ไว้ใน ScenarioManager.cs
     public void SpawnVehicleFromNetwork(SmartFlow.Network.SpawnVehicleData netData)
     {
+        // --- 🟢 ระบบป้องกันรถซ้ำ ---
+        if (recentTrackIds.Contains(netData.trackId))
+        {
+            Debug.Log($"🛑 ปฏิเสธการสร้างรถ: TrackID {netData.trackId} ถูกสร้างไปแล้ว");
+            return; // หยุดการทำงาน ไม่สร้างรถซ้ำ
+        }
+
+        // จดจำ TrackID นี้ไว้
+        recentTrackIds.Enqueue(netData.trackId);
+        // ถ้าคิวเกิน 100 คัน ให้ลบอันเก่าสุดทิ้ง (ป้องกันกิน Memory)
+        if (recentTrackIds.Count > 100) recentTrackIds.Dequeue();
+        // ---------------------------
         // 1. เลือกเส้นทาง (Inbound หรือ Outbound)
         WaypointRoute selectedRoute = (netData.direction.ToLower() == "inbound") ? inboundRoute : outboundRoute;
         
