@@ -645,6 +645,8 @@ MonoBehaviour:
   - {fileID: 2759268469964745936, guid: aae9f3ebaca48934d9b07574528f6562, type: 3}
   - {fileID: 2759268469964745936, guid: fbf24acdf7be9db4b9ebd21562a660f7, type: 3}
   - {fileID: 2759268469964745936, guid: 1077850afa9380b46976019652e094fb, type: 3}
+  truckPrefabs: []
+  busPrefabs: []
   inboundRoute: {fileID: 1523947944}
   outboundRoute: {fileID: 254317731}
   scenarios:
@@ -1359,8 +1361,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -142.59998, y: -97.76575}
-  m_SizeDelta: {x: 250, y: 175.1315}
+  m_AnchoredPosition: {x: -131.2, y: -122.9}
+  m_SizeDelta: {x: 250, y: 235.8264}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1189496493
 MonoBehaviour:
