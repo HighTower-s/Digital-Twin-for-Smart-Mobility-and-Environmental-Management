@@ -643,10 +643,10 @@ MonoBehaviour:
   - {fileID: 7605343255231519006, guid: 3dddaa70dea14b342806d16778fbd403, type: 3}
   carPrefabs:
   - {fileID: 2759268469964745936, guid: aae9f3ebaca48934d9b07574528f6562, type: 3}
+  truckPrefabs:
   - {fileID: 2759268469964745936, guid: fbf24acdf7be9db4b9ebd21562a660f7, type: 3}
+  busPrefabs:
   - {fileID: 2759268469964745936, guid: 1077850afa9380b46976019652e094fb, type: 3}
-  truckPrefabs: []
-  busPrefabs: []
   inboundRoute: {fileID: 1523947944}
   outboundRoute: {fileID: 254317731}
   scenarios:
