@@ -253,6 +253,55 @@ public class ScenarioManager : MonoBehaviour
 
         vehicleScript.ResetVehicle();
     }
+    // เพิ่มฟังก์ชันนี้ไว้ใน ScenarioManager.cs
+    public void SpawnVehicleFromNetwork(SmartFlow.Network.SpawnVehicleData netData)
+    {
+        // 1. เลือกเส้นทาง (Inbound หรือ Outbound)
+        WaypointRoute selectedRoute = (netData.direction.ToLower() == "inbound") ? inboundRoute : outboundRoute;
+        
+        if (selectedRoute == null || selectedRoute.waypoints.Count == 0) 
+        {
+            Debug.LogWarning($"ไม่พบเส้นทางสำหรับ direction: {netData.direction}");
+            return;
+        }
+
+        // 2. เลือกรถจาก Pool ตาม Type (motorcycle หรือ car)
+        GameObject prefabToSpawn;
+        if (netData.type.ToLower() == "motorcycle")
+        {
+            prefabToSpawn = motorcyclePrefabs[Random.Range(0, motorcyclePrefabs.Length)];
+        }
+        else 
+        {
+            // ถ้าเป็น car หรือประเภทอื่นๆ ให้ใช้ Prefab รถยนต์
+            prefabToSpawn = carPrefabs[Random.Range(0, carPrefabs.Length)];
+        }
+
+        // 3. ดึง Config ปัจจุบัน (เพื่อให้รู้ว่าจะให้รถวิ่งเร็วแค่ไหน เลนไหน)
+        // สมมติว่าตอนนี้เราดึงจาก Scenario ที่เลือกอยู่ (index ตาม Dropdown)
+        ScenarioConfig currentConfig = scenarios[scenarioDropdown.value];
+
+        // 4. สุ่มเลน
+        float randomLaneOffset = currentConfig.laneOffsets[Random.Range(0, currentConfig.laneOffsets.Length)];
+        Transform startPoint = selectedRoute.waypoints[0];
+        Vector3 finalSpawnPosition = startPoint.position + (startPoint.right * randomLaneOffset);
+
+        // 5. เบิกรถจาก Pool
+        GameObject newVehicle = GetVehicleFromPool(prefabToSpawn);
+        
+        // 6. ตั้งค่าตำแหน่งและส่งข้อมูลให้รถ
+        newVehicle.transform.position = finalSpawnPosition;
+        newVehicle.transform.rotation = startPoint.rotation;
+        
+        VehicleMovement vehicleScript = newVehicle.GetComponent<VehicleMovement>();
+        vehicleScript.targetSpeed = Random.Range(currentConfig.minSpeed, currentConfig.maxSpeed);
+        vehicleScript.laneOffset = randomLaneOffset;
+        vehicleScript.waypoints = selectedRoute.waypoints; 
+
+        vehicleScript.ResetVehicle();
+        
+        Debug.Log($"🚗 Spawn รถสำเร็จ: {netData.type} ฝั่ง {netData.direction} (TrackID: {netData.trackId})");
+    }
 }
 
 // คลาสเสริม เอาไว้แปะที่ตัวรถเพื่อจดจำว่ารถคันนี้สร้างมาจาก Prefab ตัวไหน

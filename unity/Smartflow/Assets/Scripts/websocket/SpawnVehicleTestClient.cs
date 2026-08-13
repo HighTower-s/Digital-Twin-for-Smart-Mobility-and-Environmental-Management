@@ -78,7 +78,12 @@ namespace SmartFlow.Network
                     + $"direction={envelope.data.direction} cameraId={envelope.data.cameraId} "
                     + $"timestamp={envelope.data.timestamp}"
                 );
+                if (ScenarioManager.Instance != null)
+                {
+                    ScenarioManager.Instance.SpawnVehicleFromNetwork(envelope.data);
+                }
             });
+            
 
             _socket.Connect();
         }
