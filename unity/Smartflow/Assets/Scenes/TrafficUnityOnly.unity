@@ -468,7 +468,7 @@ Transform:
   m_GameObject: {fileID: 254317730}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -148.41, y: 1, z: 93}
+  m_LocalPosition: {x: -148.41, y: 0.25, z: 93}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -536,7 +536,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.3
-  far clip plane: 1000
+  far clip plane: 500
   field of view: 60
   orthographic: 0
   orthographic size: 5
@@ -563,13 +563,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.23169231, y: -0, z: -0, w: 0.97278917}
-  m_LocalPosition: {x: -145.59, y: 8.7, z: 149.86}
+  m_LocalRotation: {x: 0.5, y: 0.5, z: -0.5, w: 0.5}
+  m_LocalPosition: {x: -145.59, y: 12.4, z: 78.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 26.793, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 90, y: 90, z: 0}
 --- !u!114 &330585547
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1162,37 +1162,24 @@ MonoBehaviour:
   inboundCountText: {fileID: 2146284959}
   outboundCountText: {fileID: 1099926421}
   motorcyclePrefabs:
-  - {fileID: 7605343255231519006, guid: 3dddaa70dea14b342806d16778fbd403, type: 3}
+  - {fileID: 986205629202586887, guid: a7df4f099931da842be0ba233e627886, type: 3}
   carPrefabs:
   - {fileID: 2759268469964745936, guid: aae9f3ebaca48934d9b07574528f6562, type: 3}
+  - {fileID: 4495166478373131178, guid: b257922b9b58dfd4ba87faf1d5969bc5, type: 3}
+  - {fileID: 4495166478373131178, guid: d3c8bd221ec02b048a20255a247daf6b, type: 3}
   truckPrefabs:
   - {fileID: 2759268469964745936, guid: fbf24acdf7be9db4b9ebd21562a660f7, type: 3}
   busPrefabs:
-  - {fileID: 2759268469964745936, guid: 1077850afa9380b46976019652e094fb, type: 3}
+  - {fileID: 7605343255231519006, guid: 3dddaa70dea14b342806d16778fbd403, type: 3}
   inboundRoute: {fileID: 1523947944}
   outboundRoute: {fileID: 254317731}
   scenarios:
   - scenarioName: Regular Day
-    minSpeed: 40
-    maxSpeed: 60
+    minSpeed: 30
+    maxSpeed: 50
     laneOffsets:
-    - -3
-    - 0
-    - 3
-  - scenarioName: Off-Peak Hours
-    minSpeed: 60
-    maxSpeed: 90
-    laneOffsets:
-    - -3
-    - 0
-    - 3
-  - scenarioName: Rush Hour
-    minSpeed: 10
-    maxSpeed: 40
-    laneOffsets:
-    - -3
-    - 0
-    - 3
+    - -1
+    - 1
   networkSpawnDelay: 0.5
 --- !u!4 &580850005
 Transform:
@@ -2344,7 +2331,7 @@ Transform:
   m_GameObject: {fileID: 1523947943}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: -142.7, y: 1, z: 122.36}
+  m_LocalPosition: {x: -142.7, y: 0.25, z: 122.36}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
