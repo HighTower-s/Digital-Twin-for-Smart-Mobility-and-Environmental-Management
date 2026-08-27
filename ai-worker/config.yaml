@@ -1,13 +1,13 @@
 # AI Worker — ค่าตั้งค่าสำหรับ prototype (line counting)
 # รัน: python -m src.main   (หรือ --config other.yaml เพื่อใช้ไฟล์อื่น)
 
-video: data/input_videos/traffic-1.mp4
+video: data/input_videos/traffic-5.mp4
 model: data/weights/yolov8s.pt
 camera_id: cam-chalongkrung-01
 
-imgsz: 640
+imgsz: 1280
 conf: 0.35
-tracker: bytetrack.yaml        # หรือ botsort.yaml (สลับ ID น้อยกว่า แต่ช้ากว่า)
+tracker: bytetrack.yaml        #bytetrack.yaml หรือ botsort.yaml (สลับ ID น้อยกว่า แต่ช้ากว่า)
 device: 0                   # auto | cpu | 0
 
 show_window: true
@@ -31,9 +31,23 @@ backend_url: http://localhost:3000   # ต้องรัน backend (cd backend
 zones:
   - name: in
     expectedDirection: toward
-    polygon: [[1713, 477], [2160, 468], [3006, 1392], [1599, 1389]]
-    line: [[1644, 981], [2631, 978]]
+    polygon: [[2181, 1575], [3300, 1551], [2625, 1038], [2052, 1053]]
+    line: [[2109, 1272], [2967, 1287]]
   - name: out
     expectedDirection: away
-    polygon: [[1197, 1290], [1536, 543], [1020, 504], [0, 1149]]
-    line: [[258, 999], [1326, 972]]
+    polygon: [[1818, 1524], [1863, 981], [1353, 954], [723, 1485]]
+    line: [[1197, 1077], [1848, 1080]]
+
+#    ---------- traffic-1.mp4----------------
+#
+# zones:
+#   - name: in
+#     expectedDirection: toward
+#     polygon: [[1713, 477], [2160, 468], [3006, 1392], [1599, 1389]]
+#     line: [[1644, 981], [2631, 978]]
+#   - name: out
+#     expectedDirection: away
+#     polygon: [[1197, 1290], [1536, 543], [1020, 504], [0, 1149]]
+#     line: [[258, 999], [1326, 972]]
+
+#    ---------- traffic-1.mp4----------------
