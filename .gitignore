@@ -63,6 +63,9 @@ unity/*/Assets/asset\ store/
 # โฟลเดอร์ backup ที่ย้ายไฟล์ asset ที่ไม่ใช้ออกมา (159MB — ห้ามขึ้น git)
 _assetStore_unused/
 
+# ── 3D Models / Assets ───────────────────────────────────────────────────────
+*.fbx
+
 # ── Docker / DB data ─────────────────────────────────────────────────────────
 infra/db/data/
 
