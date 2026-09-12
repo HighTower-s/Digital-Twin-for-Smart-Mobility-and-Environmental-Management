@@ -9,20 +9,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from src.constants import (
     DEFAULT_BACKEND_URL,
+    DEFAULT_BUSY_OCCUPANCY,
     DEFAULT_CAMERA_ID,
     DEFAULT_CONF_THRESHOLD,
     DEFAULT_IMGSZ,
     DEFAULT_MODEL,
+    DEFAULT_SLOW_FLOW,
+    DEFAULT_STANDSTILL_FLOW,
     DEFAULT_TRACKER,
+    DEFAULT_WINDOW_SEC,
     DIRECTIONS,
 )
 from src.counter import Point, Zone, point_in_polygon
+from src.traffic_state import TrafficThresholds
 
 
 class ConfigError(Exception):
@@ -45,6 +50,8 @@ class RunConfig:
     is_auto: bool = False
     send_to_backend: bool = False
     backend_url: str = DEFAULT_BACKEND_URL
+    window_sec: float = DEFAULT_WINDOW_SEC
+    thresholds: TrafficThresholds = field(default_factory=TrafficThresholds)
 
 
 def auto_zones(frame_size: tuple[int, int]) -> tuple[Zone, ...]:
@@ -134,6 +141,8 @@ def build_run_config(
     is_auto = zones_raw == "auto" or zones_raw is None
     zones = auto_zones(frame_size) if is_auto else _parse_zones(zones_raw, config_path)
 
+    window_sec, thresholds = parse_traffic_state(raw.get("traffic_state"), config_path)
+
     return RunConfig(
         video_path=Path(video),
         model=str(raw.get("model", DEFAULT_MODEL)),
@@ -149,7 +158,44 @@ def build_run_config(
         is_auto=is_auto,
         send_to_backend=bool(raw.get("send_to_backend", False)),
         backend_url=str(raw.get("backend_url", DEFAULT_BACKEND_URL)),
+        window_sec=window_sec,
+        thresholds=thresholds,
     )
+
+
+def parse_traffic_state(raw_state: Any, config_path: Path) -> tuple[float, TrafficThresholds]:
+    """อ่านค่า traffic_state จาก config.yaml — ไม่ระบุก็ได้ ใช้ค่าเริ่มต้นจาก constants.py
+
+    แยกเป็น public เพราะ replay.py ต้องอ่านเกณฑ์โดยไม่ต้องเปิดวิดีโอ
+    (build_run_config ต้องรู้ขนาดเฟรมก่อน ซึ่ง replay ไม่มี)
+    """
+    if raw_state is None:
+        return DEFAULT_WINDOW_SEC, TrafficThresholds()
+    if not isinstance(raw_state, dict):
+        raise ConfigError(f"{config_path}: 'traffic_state' ต้องเป็น mapping (key: value)")
+
+    window_sec = float(raw_state.get("window_sec", DEFAULT_WINDOW_SEC))
+    if window_sec <= 0:
+        raise ConfigError(f"{config_path}: traffic_state.window_sec={window_sec} ต้องมากกว่า 0")
+
+    raw_thresholds = raw_state.get("thresholds") or {}
+    if not isinstance(raw_thresholds, dict):
+        raise ConfigError(f"{config_path}: 'traffic_state.thresholds' ต้องเป็น mapping")
+
+    thresholds = TrafficThresholds(
+        busy_occupancy=float(raw_thresholds.get("busy_occupancy", DEFAULT_BUSY_OCCUPANCY)),
+        standstill_flow=float(raw_thresholds.get("standstill_flow", DEFAULT_STANDSTILL_FLOW)),
+        slow_flow=float(raw_thresholds.get("slow_flow", DEFAULT_SLOW_FLOW)),
+    )
+
+    # ถ้าสลับกัน สถานะ slow_moving จะไม่มีวันเกิดขึ้นเลย — พังดังดีกว่าเงียบ
+    if thresholds.standstill_flow > thresholds.slow_flow:
+        raise ConfigError(
+            f"{config_path}: traffic_state.thresholds.standstill_flow "
+            f"({thresholds.standstill_flow}) ต้องไม่มากกว่า slow_flow "
+            f"({thresholds.slow_flow}) — ไม่งั้นจะไม่มีสถานะ slow_moving เลย"
+        )
+    return window_sec, thresholds
 
 
 def _parse_zones(raw_zones: Any, config_path: Path) -> tuple[Zone, ...]:
@@ -184,12 +230,23 @@ def _parse_zones(raw_zones: Any, config_path: Path) -> tuple[Zone, ...]:
             raise ConfigError(f"{config_path}: โซน {name!r} line ต้องมี 2 จุดพอดี")
         _validate_line(line[0], line[1], polygon, config_path, name)
 
+        # ไม่บังคับ — ถ้าไม่มี Zone.occupancy_area จะ fallback ไปใช้ polygon นับแทน
+        raw_occupancy = raw.get("occupancyPolygon")
+        occupancy_polygon: tuple[Point, ...] = ()
+        if raw_occupancy is not None:
+            occupancy_polygon = _parse_points(raw_occupancy, config_path, name, "occupancyPolygon")
+            if len(occupancy_polygon) < 3:
+                raise ConfigError(
+                    f"{config_path}: โซน {name!r} occupancyPolygon ต้องมีอย่างน้อย 3 จุด"
+                )
+
         zones.append(
             Zone(
                 name=name,
                 expected_direction=direction,
                 polygon=polygon,
                 line=(line[0], line[1]),
+                occupancy_polygon=occupancy_polygon,
             )
         )
     return tuple(zones)

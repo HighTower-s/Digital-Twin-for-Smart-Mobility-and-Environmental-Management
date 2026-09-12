@@ -125,12 +125,23 @@ class Detection:
 
 @dataclass(frozen=True)
 class Zone:
-    """ช่องจราจรหนึ่งฝั่ง: polygon เลือกพื้นที่ + line เส้นนับที่อยู่ในพื้นที่นั้น"""
+    """ช่องจราจรหนึ่งฝั่ง: polygon เลือกพื้นที่ + line เส้นนับที่อยู่ในพื้นที่นั้น
+
+    occupancy_polygon เป็นพื้นที่แยกสำหรับ "วัดความหนาแน่น" (ดู traffic_state.py)
+    ปกติวาดให้ครอบถนนยาวกว่า polygon นับ เพราะต้องการเห็นแถวรถที่ต่อคิวอยู่
+    ไม่ใช่แค่บริเวณรอบเส้นนับ — ถ้าไม่กำหนด จะใช้ polygon เดิมแทน
+    """
 
     name: str
     expected_direction: str
     polygon: tuple[Point, ...]
     line: tuple[Point, Point]
+    occupancy_polygon: tuple[Point, ...] = ()
+
+    @property
+    def occupancy_area(self) -> tuple[Point, ...]:
+        """พื้นที่ที่ใช้วัด occupancy — fallback เป็น polygon นับถ้าไม่ได้กำหนดแยก"""
+        return self.occupancy_polygon or self.polygon
 
 
 @dataclass(frozen=True)

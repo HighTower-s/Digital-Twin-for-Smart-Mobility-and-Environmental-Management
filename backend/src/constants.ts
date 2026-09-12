@@ -4,4 +4,8 @@ export type VehicleType = (typeof VEHICLE_TYPES)[number];
 export const DIRECTIONS = ['in', 'out'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
+// สถานะจราจรที่ AI Worker ตัดสินมาแล้ว — ต้องตรงกับ STATE_* ใน ai-worker/src/constants.py
+export const TRAFFIC_STATES = ['normal', 'high_density', 'slow_moving', 'standstill'] as const;
+export type TrafficState = (typeof TRAFFIC_STATES)[number];
+
 export const LOG_TRUNCATE = 500;

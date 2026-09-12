@@ -1,90 +1,181 @@
-"""เล่นซ้ำ events.jsonl ตามจังหวะเวลาจริงของวิดีโอต้นฉบับ — สำหรับเดโม/ทดสอบ
+"""เล่นซ้ำผลที่ main.py ตรวจจับไว้ ตามจังหวะเวลาจริงของวิดีโอต้นฉบับ
 
-    python -m src.replay                              พิมพ์ event ออกจอตามจังหวะ (ไม่ส่งเข้า backend)
-    python -m src.replay --backend                     ส่งเข้า backend ด้วย (ต้องรัน backend ไว้ก่อน)
-    python -m src.replay --file other/events.jsonl     ใช้ไฟล์อื่น
+    python -m src.replay                 ดูอย่างเดียว ตามจังหวะจริง (ไม่ส่งเข้า backend)
+    python -m src.replay --backend       ส่งเข้า backend ด้วย (ต้องรัน backend ไว้ก่อน)
+    python -m src.replay --fast          ไม่หน่วงเวลา — ใช้ตอนจูนเกณฑ์ จะได้เห็นผลทันที
 
-ใช้ src/pacer.py จัดจังหวะ — ดู ai-worker/CLAUDE.md ว่าทำไม pacing ถึงจำเป็นเฉพาะ
-ตอนเดโมด้วยไฟล์วิดีโอ (Prototype) เท่านั้น ไม่เกี่ยวกับตอนเป็นกล้องสด (RTSP)
+อ่าน 2 ไฟล์ที่ main.py สร้างไว้ แล้วส่งเป็น 2 สายคู่ขนานตามเวลาเดียวกัน:
+  events.jsonl        -> spawn event (รถ 1 คันข้ามเส้น)      -> POST /api/ingest
+  traffic_state.jsonl -> สถานะจราจร (สรุปทุก window_sec)      -> POST /api/traffic-state
+
+**การตัดสินสถานะเกิดที่นี่ ไม่ใช่ตอน main.py** เพราะการวัดแพง (ต้องรัน YOLO ทั้งคลิป)
+แต่การตัดสินถูกมากและต้องปรับเกณฑ์บ่อย -> แก้เกณฑ์ใน config.yaml แล้วรันไฟล์นี้ใหม่
+ได้เลยโดยไม่ต้องรัน YOLO ซ้ำ (ดู ai-worker/CLAUDE.md)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from src.constants import DEFAULT_BACKEND_URL
+from src import config
+from src.constants import DEFAULT_BACKEND_URL, DEFAULT_CAMERA_ID
 from src.pacer import replay_paced
 from src.poster import BackendPoster
+from src.traffic_state import (
+    TrafficThresholds,
+    classify,
+    to_traffic_state_payload,
+    window_from_dict,
+)
 
 HERE = Path(__file__).parent
 AI_WORKER_ROOT = HERE.parent
-DEFAULT_EVENTS_PATH = AI_WORKER_ROOT / "data" / "output_results" / "events.jsonl"
+OUT_DIR = AI_WORKER_ROOT / "data" / "output_results"
+DEFAULT_EVENTS_PATH = OUT_DIR / "events.jsonl"
+DEFAULT_STATE_PATH = OUT_DIR / "traffic_state.jsonl"
+DEFAULT_CONFIG_PATH = AI_WORKER_ROOT / "config.yaml"
+
+KIND_SPAWN = "spawn"
+KIND_STATE = "state"
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="เล่นซ้ำ events.jsonl ตามจังหวะเวลาจริงของวิดีโอต้นฉบับ"
+        description="เล่นซ้ำ events.jsonl + traffic_state.jsonl ตามจังหวะเวลาจริง"
     )
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument(
         "--file", type=Path, default=DEFAULT_EVENTS_PATH, help="path ไปยัง events.jsonl"
+    )
+    parser.add_argument(
+        "--state-file", type=Path, default=DEFAULT_STATE_PATH, help="path ไปยัง traffic_state.jsonl"
     )
     parser.add_argument(
         "--backend", action="store_true", help="ส่งเข้า backend ด้วย (ไม่ใช่แค่พิมพ์)"
     )
     parser.add_argument("--backend-url", default=DEFAULT_BACKEND_URL)
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="ไม่หน่วงเวลาตามจังหวะวิดีโอ — ใช้ตอนจูนเกณฑ์ จะได้เห็นผลทันที",
+    )
     return parser.parse_args(argv)
 
 
-def load_events(path: Path) -> list[dict[str, Any]]:
+def load_jsonl(path: Path, required: bool = True) -> list[dict[str, Any]]:
     if not path.exists():
-        raise SystemExit(
-            f"ไม่พบไฟล์: {path.resolve()}\n  รัน python -m src.main ก่อนเพื่อสร้าง events.jsonl"
+        if required:
+            raise SystemExit(
+                f"ไม่พบไฟล์: {path.resolve()}\n  รัน python -m src.main ก่อนเพื่อสร้างไฟล์นี้"
+            )
+        return []
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+
+
+def build_timeline(
+    events: list[dict[str, Any]],
+    windows: list[dict[str, Any]],
+    thresholds: TrafficThresholds,
+    camera_id: str,
+) -> list[dict[str, Any]]:
+    """รวม 2 สายเป็นไทม์ไลน์เดียว เรียงตามเวลาในวิดีโอ
+
+    spawn event ใช้เวลาที่รถข้ามเส้น ส่วน traffic state ใช้เวลา "ปลาย" ของหน้าต่าง
+    (เพราะกว่าจะสรุปได้ต้องดูจนจบช่วงนั้นก่อน)
+    """
+    timeline: list[dict[str, Any]] = [
+        {"videoTimeSec": event["videoTimeSec"], "kind": KIND_SPAWN, "payload": event}
+        for event in events
+    ]
+
+    for raw in windows:
+        window = window_from_dict(raw)
+        state = classify(window, thresholds)
+        timeline.append(
+            {
+                "videoTimeSec": window.window_end_sec,
+                "kind": KIND_STATE,
+                "payload": to_traffic_state_payload(window, state, camera_id=camera_id),
+            }
         )
 
-    events: list[dict[str, Any]] = []
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                events.append(json.loads(line))
-    return events
+    timeline.sort(key=lambda item: item["videoTimeSec"])
+    return timeline
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    events = load_events(args.file)
 
-    if not events:
-        print(f"[replay] {args.file} ว่างเปล่า ไม่มีอะไรให้เล่นซ้ำ")
+    raw_config = config.load_yaml_config(args.config)
+    _, thresholds = config.parse_traffic_state(raw_config.get("traffic_state"), args.config)
+    camera_id = str(raw_config.get("camera_id", DEFAULT_CAMERA_ID))
+
+    events = load_jsonl(args.file)
+    windows = load_jsonl(args.state_file, required=False)
+    timeline = build_timeline(events, windows, thresholds, camera_id)
+
+    if not timeline:
+        print("[replay] ไม่มีอะไรให้เล่นซ้ำ")
         return 0
 
-    total_span = events[-1]["videoTimeSec"] - events[0]["videoTimeSec"]
-    print(f"[replay] โหลด {len(events)} events จาก {args.file}")
-    print(f"[replay] ช่วงเวลาตามวิดีโอ: {total_span:.2f} วินาที")
+    span = timeline[-1]["videoTimeSec"] - timeline[0]["videoTimeSec"]
+    print(f"[replay] spawn event {len(events)} รายการ | สถานะจราจร {len(windows)} ช่วง")
+    print(f"[replay] ช่วงเวลาตามวิดีโอ: {span:.2f} วินาที")
+    print(
+        f"[replay] เกณฑ์: busy_occupancy={thresholds.busy_occupancy} "
+        f"standstill_flow={thresholds.standstill_flow} slow_flow={thresholds.slow_flow}"
+    )
+    if args.fast:
+        print("[replay] โหมด --fast: ไม่หน่วงเวลา")
     if args.backend:
-        print(f"[replay] จะส่งเข้า backend ที่ {args.backend_url}")
+        print(f"[replay] ส่งเข้า backend ที่ {args.backend_url}")
     print()
 
     poster = BackendPoster(args.backend_url) if args.backend else None
+    states = Counter()
 
-    def on_event(event: dict[str, Any]) -> None:
-        print(json.dumps(event, ensure_ascii=False))
-        if poster is not None:
-            poster.post(event)
+    def handle(item: dict[str, Any]) -> None:
+        payload = item["payload"]
+        if item["kind"] == KIND_STATE:
+            states[payload["trafficState"]] += 1
+            # veh = รถยนต์/บรรทุก/บัส (ใช้ตัดสิน) · mc = มอเตอร์ไซค์ (แสดงให้ดูเฉย ๆ)
+            zones = "  ".join(
+                f"{name}(occ={z['occupancy']:.2f} "
+                f"veh={z['vehicleFlowRate']:.1f} mc={z['motorcycleFlowRate']:.1f})"
+                for name, z in payload["zones"].items()
+            )
+            print(
+                f"[{payload['windowStartSec']:6.1f}-{payload['windowEndSec']:6.1f}s] "
+                f"{payload['trafficState'].upper():<13} {zones}"
+            )
+            if poster is not None:
+                poster.post_traffic_state(payload)
+        else:
+            print(f"  spawn {payload['trackId']:>18}  {payload['type']:<11} {payload['direction']}")
+            if poster is not None:
+                poster.post(payload)
 
-    replay_paced(events, on_event)
+    if args.fast:
+        for item in timeline:
+            handle(item)
+    else:
+        replay_paced(timeline, handle)
 
     print()
+    if states:
+        print("สรุปสถานะจราจรตลอดคลิป:")
+        for state, n in states.most_common():
+            print(f"  {state:<13} {n:3d} ช่วง  ({n / sum(states.values()) * 100:.0f}%)")
     if poster is not None:
-        print(f"[replay] ส่งเข้า backend: {poster.sent} สำเร็จ | {poster.failed} ล้มเหลว")
+        print(f"\n[replay] ส่งเข้า backend: {poster.sent} สำเร็จ | {poster.failed} ล้มเหลว")
         poster.close()
-    print(
-        f"[replay] เล่นจบ — {len(events)} events ใน {total_span:.2f} วินาที (ตามจังหวะวิดีโอต้นฉบับ)"
-    )
     return 0
 
 

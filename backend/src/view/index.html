@@ -127,6 +127,12 @@
     .badge.motorcycle { background: #238636; color: #fff; }
     .badge.bus        { background: #8957e5; color: #fff; }
 
+    #state-card .value { font-size: 1.3rem; }
+    .state-normal       { color: #3fb950; }
+    .state-high_density { color: #d29922; }
+    .state-slow_moving  { color: #db6d28; }
+    .state-standstill   { color: #f85149; }
+
     .direction {
       font-size: 0.75rem;
       color: #8b949e;
@@ -190,6 +196,27 @@
   <h1>Smart Flow — Live Monitor</h1>
   <span id="status-label">connecting…</span>
 </header>
+
+<section id="traffic-state">
+  <h2>Traffic State</h2>
+  <div class="cards">
+    <div class="card" id="state-card">
+      <div class="label">Current State</div>
+      <div class="value" id="state-value">—</div>
+      <div class="sub" id="state-window">waiting for traffic-state…</div>
+    </div>
+    <div class="card">
+      <div class="label">In — occupancy / veh / mc</div>
+      <div class="value" id="state-in">—</div>
+      <div class="sub">in zone / cars per min / motorcycles per min</div>
+    </div>
+    <div class="card">
+      <div class="label">Out — occupancy / veh / mc</div>
+      <div class="value" id="state-out">—</div>
+      <div class="sub">in zone / cars per min / motorcycles per min</div>
+    </div>
+  </div>
+</section>
 
 <section id="summary">
   <h2>Summary Report</h2>
@@ -258,6 +285,22 @@
   socket.on('spawn', (event) => {
     addFeedItem(event);
     fetchStats();
+  });
+
+  socket.on('traffic_state', (payload) => {
+    const stateValue = document.getElementById('state-value');
+    stateValue.textContent = payload.trafficState.replace('_', ' ');
+    stateValue.className = `value state-${payload.trafficState}`;
+    document.getElementById('state-window').textContent =
+      `window ${payload.windowStartSec.toFixed(0)}–${payload.windowEndSec.toFixed(0)}s`;
+
+    for (const zone of ['in', 'out']) {
+      const data = payload.zones[zone];
+      // motorcycleFlowRate ไม่บังคับใน contract — worker รุ่นเก่าไม่ส่งมา
+      document.getElementById(`state-${zone}`).textContent = data
+        ? `${data.occupancy.toFixed(2)} / ${data.vehicleFlowRate.toFixed(1)} / ${(data.motorcycleFlowRate ?? 0).toFixed(1)}`
+        : '—';
+    }
   });
 
   function addFeedItem(event) {

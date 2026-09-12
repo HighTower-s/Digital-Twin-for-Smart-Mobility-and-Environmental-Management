@@ -33,7 +33,7 @@ extends it — it does not replace it.
 |---|---|---|
 | Ingest schema | `spawn-event` — one vehicle per POST | `frame` — `vehicles[]` with position + speed |
 | Payload has position/speed | ❌ no | ✅ yes |
-| WebSocket emit | `emit("spawn", event)` + `emit("spawn_vehicle", envelope)` for Unity | `emit("frame", frame)` |
+| WebSocket emit | `emit("spawn", event)` + `emit("spawn_vehicle", envelope)` + `emit("traffic_state", payload)` | `emit("frame", frame)` |
 | Counting | in-memory counters + `GET /api/stats` | counters optional, carried over |
 | Database | ❌ none — no TimescaleDB, no `db/` module | ✅ async TimescaleDB log, gated by `ENABLE_DB_LOGGING` (default `false`) |
 | Vehicle types | `car`, `truck`, `motorcycle`, `bus` | `car`, `truck`, `motorcycle`, `bus` |
@@ -53,6 +53,7 @@ building storage for data that doesn't exist. See `docs/project-status.md`
 | Method + Path | Purpose |
 |---|---|
 | `POST /api/ingest` | Receive one spawn-event, validate, update counters, `emit("spawn", event)` + `emit("spawn_vehicle", envelope)` |
+| `POST /api/traffic-state` | Receive one traffic-state window, validate, `emit("traffic_state", payload)` — ไม่แปลง payload |
 | `GET /api/stats` | Return current in-memory counters |
 | `POST /api/stats/reset` | Zero all counters (demo convenience) |
 | `GET /health` | Uptime check |
@@ -101,6 +102,35 @@ Drops `schema`, `videoTimeSec`, `frameCount`, `confidence` — see
 backend's dev dashboard (`GET /`) still listens to the unmodified `spawn` channel,
 not `spawn_vehicle` — it is unaffected by this.
 
+### `traffic_state` — สภาพจราจรต่อช่วงเวลา
+
+คนละสายกับ spawn-event: spawn-event = รถ 1 คัน, traffic-state = สภาพถนนช่วงนั้น
+(~1 ครั้งต่อ 10 วินาที) AI Worker เป็นคนวัดและ**ตัดสิน**มาแล้ว backend แค่ validate
+แล้ว broadcast ต่อโดยไม่แปลง
+
+```json
+{
+  "schema": "traffic-state/0.1-draft",
+  "timestamp": "2026-09-01T09:15:55.123Z",
+  "cameraId": "cam-chalongkrung-01",
+  "windowStartSec": 20.0,
+  "windowEndSec": 30.0,
+  "zones": {
+    "in":  { "occupancy": 2.83, "vehicleFlowRate": 30.0, "motorcycleFlowRate": 12.0 },
+    "out": { "occupancy": 9.50, "vehicleFlowRate": 0.6,  "motorcycleFlowRate": 24.0 }
+  },
+  "trafficState": "standstill"
+}
+```
+
+`vehicleFlowRate` (car+truck+bus) คือค่าเดียวที่ใช้ตัดสิน — `motorcycleFlowRate` แยกออกมา
+เพราะมอเตอร์ไซค์มุดผ่านรถที่จอดติดได้ ถ้ารวมกันจะกลบสัญญาณ `standstill`
+(ดู `docs/data-contract.md` §2d) เป็น field ไม่บังคับ ไม่ส่งมา = 0
+
+`trafficState` ∈ `normal` | `high_density` | `slow_moving` | `standstill`
+(ต้องตรงกับ `TRAFFIC_STATES` ใน `src/constants.ts` และ `STATE_*` ใน
+`ai-worker/src/constants.py`) — validation rules ดู `docs/data-contract.md` §4
+
 ### Validation rules
 
 ```
@@ -111,6 +141,13 @@ REJECT if: type not in ["car", "truck", "motorcycle", "bus"]
 REJECT if: direction not in ["in", "out"]
 REJECT if: confidence is not a number in range [0.0, 1.0]
 REJECT if: videoTimeSec or frameCount present but negative or not finite
+```
+
+Traffic-state (`POST /api/traffic-state`) — กฎเต็มดู `docs/data-contract.md` §4:
+
+```
+REJECT if: any zone.occupancy or zone.vehicleFlowRate is negative or not finite
+REJECT if: any zone.motorcycleFlowRate is present but negative or not finite
 ```
 
 On rejection: HTTP 400 + reason string. Log warning with reason + raw payload

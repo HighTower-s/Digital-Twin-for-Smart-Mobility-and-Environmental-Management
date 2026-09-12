@@ -14,7 +14,7 @@ POST_TIMEOUT_SEC = 3.0
 
 
 class BackendPoster:
-    """POST payload ไปที่ {backend_url}/api/ingest ทีละ event"""
+    """POST payload เข้า backend — spawn event และสถานะจราจรไปคนละ endpoint"""
 
     def __init__(
         self,
@@ -23,18 +23,28 @@ class BackendPoster:
         client: httpx.Client | None = None,
     ) -> None:
         """client: ใส่เองเพื่อเทส (เช่น httpx.MockTransport) — ปกติปล่อยว่างให้สร้างจริง"""
-        self._url = f"{backend_url.rstrip('/')}/api/ingest"
+        base = backend_url.rstrip("/")
+        self._url = f"{base}/api/ingest"
+        self._state_url = f"{base}/api/traffic-state"
         self._client = client or httpx.Client(timeout=timeout)
         self.sent = 0
         self.failed = 0
 
     def post(self, payload: dict[str, Any]) -> bool:
-        """ส่ง payload คืน True ถ้า backend ตอบ 200 — error ใด ๆ log แล้วคืน False"""
+        """ส่ง spawn event — คืน True ถ้า backend ตอบ 200"""
+        return self._post_to(self._url, payload)
+
+    def post_traffic_state(self, payload: dict[str, Any]) -> bool:
+        """ส่งสถานะจราจร (สรุปต่อช่วงเวลา) ไปคนละ endpoint กับ spawn event"""
+        return self._post_to(self._state_url, payload)
+
+    def _post_to(self, url: str, payload: dict[str, Any]) -> bool:
+        """error ใด ๆ log แล้วคืน False — ปลายทางมีปัญหาต้องไม่ทำให้ทั้ง pipeline หยุด"""
         try:
-            response = self._client.post(self._url, json=payload)
+            response = self._client.post(url, json=payload)
         except httpx.HTTPError as exc:
             self.failed += 1
-            print(f"[poster] ส่งเข้า backend ไม่ได้ ({self._url}): {exc}", flush=True)
+            print(f"[poster] ส่งเข้า backend ไม่ได้ ({url}): {exc}", flush=True)
             return False
 
         if response.status_code != 200:

@@ -20,6 +20,13 @@ COCO_TO_TYPE: Final[dict[int, str]] = {
 VEHICLE_CLASS_IDS: Final[list[int]] = sorted(COCO_TO_TYPE)
 VEHICLE_TYPES: Final[tuple[str, ...]] = ("car", "motorcycle", "bus", "truck")
 
+# แยกมอเตอร์ไซค์ออกจากชนิดอื่นตอนวัด "อัตราการไหล" (ดู traffic_state.py)
+# เหตุผล: มอเตอร์ไซค์มุดผ่านช่องว่างระหว่างรถที่จอดติดได้ จึงยังข้ามเส้นเรื่อย ๆ
+# แม้รถยนต์จะหยุดสนิท -> ถ้านับรวมกัน มอเตอร์ไซค์จะกลบสัญญาณรถติดจนไม่เห็น standstill
+# (พิสูจน์กับคลิปจริง 2026-09-02: ช่วงที่รถยนต์ข้าม 0 คัน มอเตอร์ไซค์ข้าม 4 คัน)
+MOTORCYCLE_TYPE: Final[str] = "motorcycle"
+FLOW_VEHICLE_TYPES: Final[tuple[str, ...]] = ("car", "bus", "truck")
+
 # ---------------------------------------------------------------- ทิศทาง
 
 # กล้องอยู่บนสะพานลอยมองตามแนวถนน
@@ -69,6 +76,33 @@ DEFAULT_CAMERA_ID: Final[str] = "cam-chalongkrung-01"
 
 # เวอร์ชันของ spawn event — 0.2 เพราะตัด lane/speed ออกจาก 0.1-draft เดิม (2026-08-09)
 SPAWN_EVENT_SCHEMA: Final[str] = "spawn-event/0.2-draft"
+
+TRAFFIC_STATE_SCHEMA: Final[str] = "traffic-state/0.1-draft"
+
+# ---------------------------------------------------------------- สถานะจราจร
+
+# ตัดสินจาก 2 ค่า: occupancy (รถในโซน = ความหนาแน่น) และ flow (รถข้ามเส้น/นาที)
+# เพราะ Flow = Density × Speed -> ถ้าดู flow อย่างเดียว "รถติดสนิท" (speed=0)
+# กับ "ถนนว่าง" (density=0) จะได้ 0 เท่ากัน แยกไม่ออก
+STATE_NORMAL: Final[str] = "normal"
+STATE_HIGH_DENSITY: Final[str] = "high_density"
+STATE_SLOW_MOVING: Final[str] = "slow_moving"
+STATE_STANDSTILL: Final[str] = "standstill"
+TRAFFIC_STATES: Final[tuple[str, ...]] = (
+    STATE_NORMAL,
+    STATE_HIGH_DENSITY,
+    STATE_SLOW_MOVING,
+    STATE_STANDSTILL,
+)
+
+# ค่าเริ่มต้น — override ได้ใน config.yaml ใต้ traffic_state:
+# **ยังไม่ได้จูนกับคลิปรถติดจริง** ตัวเลขวัดจาก traffic-5 (จราจรปกติ) คือ
+# occupancy 0.2-1.1 / flow 12-36 ด้วย polygon นับเดิม — ต้องวัดใหม่หลังวาด
+# occupancyPolygon ที่ครอบถนนยาวขึ้น
+DEFAULT_WINDOW_SEC: Final[float] = 10.0
+DEFAULT_BUSY_OCCUPANCY: Final[float] = 3.0  # occupancy เกินนี้ = หนาแน่น
+DEFAULT_STANDSTILL_FLOW: Final[float] = 2.0  # คัน/นาที ต่ำกว่านี้ + หนาแน่น = ติดสนิท
+DEFAULT_SLOW_FLOW: Final[float] = 12.0  # คัน/นาที ต่ำกว่านี้ + หนาแน่น = เคลื่อนตัวช้า
 
 # backend รันเครื่องเดียวกันในเวอร์ชัน prototype — ตรงกับ backend/.env.example PORT=3000
 DEFAULT_BACKEND_URL: Final[str] = "http://localhost:3000"

@@ -150,3 +150,66 @@ def test_custom_zones_reject_line_outside_polygon():
     bad = {**VALID_ZONE, "line": [[1000, 1000], [1100, 1000]]}
     with pytest.raises(ConfigError, match="นอก polygon"):
         build_run_config(base_raw(zones=[bad]), FRAME_SIZE, FAKE_PATH)
+
+
+# ==================================================== occupancyPolygon
+
+
+def test_zone_without_occupancy_polygon_falls_back_to_counting_polygon():
+    cfg = build_run_config(base_raw(zones=[VALID_ZONE]), FRAME_SIZE, FAKE_PATH)
+    zone = cfg.zones[0]
+    assert zone.occupancy_polygon == ()
+    assert zone.occupancy_area == zone.polygon
+
+
+def test_zone_reads_occupancy_polygon_when_given():
+    big = [[0, 0], [400, 0], [400, 400], [0, 400]]
+    zone_raw = {**VALID_ZONE, "occupancyPolygon": big}
+    cfg = build_run_config(base_raw(zones=[zone_raw]), FRAME_SIZE, FAKE_PATH)
+    zone = cfg.zones[0]
+    assert zone.occupancy_area == ((0, 0), (400, 0), (400, 400), (0, 400))
+    assert zone.occupancy_area != zone.polygon
+
+
+def test_occupancy_polygon_rejects_too_few_points():
+    zone_raw = {**VALID_ZONE, "occupancyPolygon": [[0, 0], [10, 0]]}
+    with pytest.raises(ConfigError, match="occupancyPolygon"):
+        build_run_config(base_raw(zones=[zone_raw]), FRAME_SIZE, FAKE_PATH)
+
+
+# ==================================================== traffic_state
+
+
+def test_traffic_state_uses_defaults_when_omitted():
+    cfg = build_run_config(base_raw(), FRAME_SIZE, FAKE_PATH)
+    assert cfg.window_sec == 10.0
+    assert cfg.thresholds.busy_occupancy == 3.0
+    assert cfg.thresholds.standstill_flow == 2.0
+    assert cfg.thresholds.slow_flow == 12.0
+
+
+def test_traffic_state_reads_overrides():
+    raw = base_raw(
+        traffic_state={
+            "window_sec": 20,
+            "thresholds": {"busy_occupancy": 5, "standstill_flow": 1, "slow_flow": 8},
+        }
+    )
+    cfg = build_run_config(raw, FRAME_SIZE, FAKE_PATH)
+    assert cfg.window_sec == 20.0
+    assert cfg.thresholds.busy_occupancy == 5.0
+    assert cfg.thresholds.standstill_flow == 1.0
+    assert cfg.thresholds.slow_flow == 8.0
+
+
+def test_traffic_state_rejects_non_positive_window():
+    raw = base_raw(traffic_state={"window_sec": 0})
+    with pytest.raises(ConfigError, match="window_sec"):
+        build_run_config(raw, FRAME_SIZE, FAKE_PATH)
+
+
+def test_traffic_state_rejects_standstill_flow_above_slow_flow():
+    """ถ้าสลับกัน สถานะ slow_moving จะไม่มีวันเกิด — ต้องพังดัง"""
+    raw = base_raw(traffic_state={"thresholds": {"standstill_flow": 20, "slow_flow": 10}})
+    with pytest.raises(ConfigError, match="slow_flow"):
+        build_run_config(raw, FRAME_SIZE, FAKE_PATH)

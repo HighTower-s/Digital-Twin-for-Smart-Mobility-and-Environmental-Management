@@ -1,7 +1,7 @@
 # AI Worker — ค่าตั้งค่าสำหรับ prototype (line counting)
 # รัน: python -m src.main   (หรือ --config other.yaml เพื่อใช้ไฟล์อื่น)
 
-video: data/input_videos/traffic-5.mp4
+video: data/input_videos/event-1.mp4
 model: data/weights/yolov8s.pt
 camera_id: cam-chalongkrung-01
 
@@ -17,37 +17,40 @@ emit_preview: 20             # 0 = print ทุก event ถ้ารถหน�
 send_to_backend: true        # true = POST spawn event เข้า backend แบบ real-time ด้วย
 backend_url: http://localhost:3000   # ต้องรัน backend (cd backend && npm run dev) ไว้ก่อน
 
-# zones: auto = เดาโซน/เส้นนับจากขนาดเฟรม (ใช้ดูภาพรวมเร็ว ๆ ตัวเลขยังอ้างอิงไม่ได้)
-# หรือใส่ calib เอง เช่น:
+# เกณฑ์ตัดสินสถานการณ์จราจร — ตัดสินจาก 2 ค่า: occupancy (รถเยอะไหม) x vehicleFlowRate (รถขยับไหม)
+# หมายเหตุ: flow ที่ใช้ตัดสิน "ไม่รวมมอเตอร์ไซค์" เพราะมุดผ่านรถติดได้ ถ้ารวมจะไม่มีวันเจอ standstill
+#   รถน้อย                -> normal
+#   รถเยอะ + ไหลได้ดี      -> high_density
+#   รถเยอะ + ขยับช้า       -> slow_moving
+#   รถเยอะ + แทบไม่ขยับ    -> standstill
+# แก้ค่าตรงนี้แล้วรัน `python -m src.replay --fast` ดูผลได้ทันที ไม่ต้องรัน YOLO ใหม่
+traffic_state:
+  window_sec: 10              # สรุปสถานะทุกกี่วินาที (เพิ่มถ้าอัตราการไหลแกว่งเกินไป)
+  thresholds:
+    busy_occupancy: 3.0       # occupancy เกินนี้ = หนาแน่น
+    standstill_flow: 2.0      # รถยนต์/นาที ต่ำกว่านี้ + หนาแน่น = ติดสนิท
+    slow_flow: 12.0           # รถยนต์/นาที ต่ำกว่านี้ + หนาแน่น = เคลื่อนตัวช้า
+# ⚠️ ยังไม่ได้จูนกับคลิปรถติดจริง — ค่าที่วัดได้จาก traffic-5 (จราจรปกติ) คือ
+#    occupancy 0.20-2.76 / flow 0.0-42.4 ซึ่ง busy_occupancy=3.0 เฉียดมาก (ห่างแค่ 0.24)
+#    ถ่ายคลิปรถติดมาวัดแล้วค่อยตั้งค่าใหม่ให้แยก 2 กลุ่มได้ชัดกว่านี้
+
 # zones:
 #   - name: in
 #     expectedDirection: toward
-#     polygon: [[960, 270], [1843, 270], [1843, 1026], [960, 1026]]
-#     line: [[965, 648], [1838, 648]]
+#     polygon: [[2181, 1575], [3300, 1551], [2625, 1038], [2052, 1053]]
+#     line: [[2109, 1272], [2967, 1287]]
+#     occupancyPolygon: [[2190, 1554], [3330, 1563], [2307, 798], [1986, 810]]
 #   - name: out
 #     expectedDirection: away
-#     polygon: [[77, 270], [960, 270], [960, 1026], [77, 1026]]
-#     line: [[82, 648], [955, 648]]
+#     polygon: [[1818, 1524], [1863, 981], [1353, 954], [723, 1485]]
+#     line: [[1197, 1077], [1848, 1080]]
+#     occupancyPolygon: [[1833, 1545], [1890, 762], [1584, 747], [702, 1512]] 
+#     -----------traffic-1------------
+
+
 zones:
   - name: in
     expectedDirection: toward
-    polygon: [[2181, 1575], [3300, 1551], [2625, 1038], [2052, 1053]]
-    line: [[2109, 1272], [2967, 1287]]
-  - name: out
-    expectedDirection: away
-    polygon: [[1818, 1524], [1863, 981], [1353, 954], [723, 1485]]
-    line: [[1197, 1077], [1848, 1080]]
-
-#    ---------- traffic-1.mp4----------------
-#
-# zones:
-#   - name: in
-#     expectedDirection: toward
-#     polygon: [[1713, 477], [2160, 468], [3006, 1392], [1599, 1389]]
-#     line: [[1644, 981], [2631, 978]]
-#   - name: out
-#     expectedDirection: away
-#     polygon: [[1197, 1290], [1536, 543], [1020, 504], [0, 1149]]
-#     line: [[258, 999], [1326, 972]]
-
-#    ---------- traffic-1.mp4----------------
+    polygon: [[322, 1023], [1377, 1026], [1048, 418], [681, 424]]
+    line: [[322, 796], [1377, 810]]
+    occupancyPolygon: [[1377, 1042], [1004, 315], [741, 315], [314, 1054]]

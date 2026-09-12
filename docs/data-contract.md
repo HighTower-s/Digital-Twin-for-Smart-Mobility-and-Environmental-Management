@@ -4,8 +4,8 @@
 > This schema is shared by AI Worker, Backend, and Unity.
 > A breaking change here breaks all 3 modules simultaneously.
 
-> Last reviewed: 2026-08-12
-> Schema version: `1.2.0`
+> Last reviewed: 2026-09-02
+> Schema version: `1.4.0`
 
 ---
 
@@ -26,11 +26,21 @@ for the full phase breakdown:
   the camera line, no position/speed. This is what AI Worker emits today (see
   `ai-worker/data/output_results/events.jsonl`).
 
+- **§2d Traffic-state schema (Prototype, current)** — สรุปสภาพจราจรต่อช่วงเวลา
+  (occupancy + อัตราการไหล + คำตัดสิน) ส่งคู่ขนานไปกับ spawn-event คนละช่องทาง
+
 All producers/consumers use **identical payload format** on the `spawn` WebSocket
 channel — Backend must not transform that payload before forwarding it. Backend
 also broadcasts a second, Unity-specific channel (`spawn_vehicle`) that
 intentionally wraps and trims the payload — a documented, narrowly-scoped exception
 to the "no transform" rule. See §2c.
+
+### ช่องทางทั้งหมด (Prototype)
+
+| POST endpoint | WebSocket emit | ความถี่ | payload |
+|---|---|---|---|
+| `/api/ingest` | `spawn` (ดิบ) + `spawn_vehicle` (ห่อ+ตัด) | ต่อรถ 1 คัน | §2b / §2c |
+| `/api/traffic-state` | `traffic_state` | ต่อช่วงเวลา (~10 วิ) | §2d |
 
 ---
 
@@ -171,6 +181,74 @@ Every valid spawn-event ingested triggers **two** WebSocket broadcasts:
 
 ---
 
+## 2d. Traffic State Schema (`traffic-state/0.1-draft`) — Prototype
+
+สรุปสภาพจราจรต่อช่วงเวลา (ค่าเริ่มต้น 10 วินาที) — **คนละสายกับ spawn-event**
+spawn-event = รถ 1 คัน ส่วน traffic-state = สภาพรวมของถนนช่วงนั้น
+
+### ทำไมต้องมี
+เส้นนับวัดได้แค่ **Flow** ซึ่งตามความสัมพันธ์ `Flow = Density × Speed` ทำให้
+**"รถติดสนิท" (Speed=0) กับ "ถนนว่าง" (Density=0) ได้ Flow = 0 เท่ากัน แยกไม่ออก**
+จึงต้องวัด **Density (occupancy)** เพิ่ม = นับรถที่อยู่ในโซนโดยไม่สนว่าข้ามเส้นหรือยัง
+
+### ทำไมแยกอัตราการไหลของมอเตอร์ไซค์ออกมา (ห้ามรวมกลับ)
+`Flow = Density × Speed` สมมติว่ารถทุกคันเคลื่อนที่ไปพร้อมกัน ซึ่งไม่จริงในไทย —
+**มอเตอร์ไซค์มุดผ่านช่องว่างระหว่างรถที่จอดติดได้** ถ้ารวมเข้าไปในตัวเลขเดียว
+มอเตอร์ไซค์จะกลบสัญญาณรถติดจนตรวจไม่เจอ `standstill` เลย
+
+พิสูจน์กับคลิปจริง (2026-09-02): ช่วงที่รถยนต์ข้ามเส้น **0 คัน** (หยุดสนิท) มีมอเตอร์ไซค์
+ข้าม 4 คัน → รวมกันได้ 24 คัน/นาที → ระบบตัดสินผิดเป็น `high_density`
+
+จึงแยกเป็น 2 field: `vehicleFlowRate` (car+truck+bus) **ใช้ตัดสิน** และ
+`motorcycleFlowRate` ส่งไปให้ Unity ใช้ต่อได้ แต่**ไม่มีผลต่อคำตัดสิน**
+
+### Example
+```json
+{
+  "schema": "traffic-state/0.1-draft",
+  "timestamp": "2026-09-01T09:15:55.123Z",
+  "cameraId": "cam-chalongkrung-01",
+  "windowStartSec": 20.0,
+  "windowEndSec": 30.0,
+  "zones": {
+    "in":  { "occupancy": 2.83, "vehicleFlowRate": 30.0, "motorcycleFlowRate": 12.0 },
+    "out": { "occupancy": 9.50, "vehicleFlowRate": 0.6,  "motorcycleFlowRate": 24.0 }
+  },
+  "trafficState": "standstill"
+}
+```
+
+### Field Reference
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `schema` | `string` | ✅ | `"traffic-state/0.1-draft"` |
+| `timestamp` | `string` (ISO 8601) | ✅ | UTC time the window was emitted |
+| `cameraId` | `string` | ✅ | Unique camera identifier |
+| `windowStartSec` | `number` | ✅ | วินาทีเริ่มต้นของช่วง (นับจากต้นคลิป) |
+| `windowEndSec` | `number` | ✅ | วินาทีสิ้นสุด — ต้องมากกว่า `windowStartSec` |
+| `zones` | `object` | ✅ | key = ชื่อโซน (`in`/`out`) อย่างน้อย 1 โซน — ถนนทางเดียวมีโซนเดียวได้ |
+| `zones.*.occupancy` | `number` | ✅ | จำนวนรถในโซนเฉลี่ยต่อเฟรม = **ความหนาแน่น** (≥ 0) |
+| `zones.*.vehicleFlowRate` | `number` | ✅ | `car`+`truck`+`bus` ต่อนาที ที่ข้ามเส้นนับ = **อัตราการไหล** (≥ 0) — ค่าเดียวที่ใช้ตัดสิน |
+| `zones.*.motorcycleFlowRate` | `number` | ❌ | มอเตอร์ไซค์ต่อนาที (≥ 0) — ข้อมูลประกอบ **ไม่ใช้ตัดสิน** ถ้าไม่ส่งมาให้ถือเป็น `0` |
+| `trafficState` | `string` | ✅ | Enum: `"normal"` \| `"high_density"` \| `"slow_moving"` \| `"standstill"` |
+
+### ตรรกะที่ AI Worker ใช้ตัดสิน `trafficState`
+
+"ขยับ" ตัดสินจาก `vehicleFlowRate` เท่านั้น — `motorcycleFlowRate` ไม่มีส่วนร่วม
+
+| | รถขยับได้ดี | รถขยับช้า | รถแทบไม่ขยับ |
+|---|---|---|---|
+| **occupancy ต่ำ** | `normal` | — | `normal` (ถนนว่าง) |
+| **occupancy สูง** | `high_density` | `slow_moving` | `standstill` |
+
+เกณฑ์ตัวเลขปรับได้ใน `ai-worker/config.yaml` → `traffic_state.thresholds`
+**ค่าที่ได้ขึ้นกับขนาด `occupancyPolygon` ที่วาด** จึงต้องจูนใหม่ทุกครั้งที่เปลี่ยนมุมกล้อง
+
+Backend broadcast ต่อด้วย `emit("traffic_state", payload)` **โดยไม่แปลง payload**
+
+---
+
 ## 4. Validation Rules
 
 ### Frame schema (MVP)
@@ -200,6 +278,21 @@ REJECT if: type is not one of ["car", "truck", "motorcycle", "bus"]
 REJECT if: direction is not one of ["in", "out"]
 REJECT if: confidence is not a number in range [0.0, 1.0]
 REJECT if: videoTimeSec or frameCount is present but negative or not finite
+```
+
+### Traffic-state schema (Prototype)
+
+Backend **must reject** (HTTP 400) any payload that violates these rules:
+
+```
+REJECT if: timestamp is missing or not a valid ISO 8601 string
+REJECT if: cameraId is missing or empty string
+REJECT if: windowStartSec or windowEndSec is negative or not finite
+REJECT if: windowEndSec <= windowStartSec
+REJECT if: trafficState is not one of ["normal", "high_density", "slow_moving", "standstill"]
+REJECT if: zones is missing, not an object, or empty
+REJECT if: any zone.occupancy or zone.vehicleFlowRate is negative or not finite
+REJECT if: any zone.motorcycleFlowRate is present but negative or not finite
 ```
 
 Payload passes validation silently. Failed validation logs a warning with
@@ -295,7 +388,7 @@ the rejection reason and the raw payload (truncated to 500 chars).
 - **MINOR** bump = new optional field added → backwards compatible
 - **PATCH** bump = description / comment clarification only
 
-Current version: `1.2.0`
+Current version: `1.4.0`
 
 ---
 
@@ -306,6 +399,8 @@ Current version: `1.2.0`
 | 1.0.0 | 2026-06-12 | initial | Initial schema based on project proposal |
 | 1.1.0 | 2026-08-12 | backend redesign | Added §2b Prototype spawn-event schema; added `"bus"` to the `type` enum in both schemas |
 | 1.2.0 | 2026-08-12 | unity envelope | Added §2c `spawn_vehicle` broadcast — wrapped + trimmed Unity-specific view alongside the unchanged `spawn` channel |
+| 1.3.0 | 2026-09-02 | traffic state | Added §2d `traffic-state` schema — per-window occupancy + flowRate and a `trafficState` verdict, broadcast on the new `traffic_state` channel |
+| 1.4.0 | 2026-09-02 | motorcycle flow | **Breaking within §2d:** `zones.*.flowRate` แยกเป็น `vehicleFlowRate` (บังคับ, ใช้ตัดสิน) + `motorcycleFlowRate` (ไม่บังคับ) เพราะมอเตอร์ไซค์มุดผ่านรถติดได้ ทำให้กลบสัญญาณ `standstill` — นับเป็น MINOR เพราะ §2d ยังเป็น `0.1-draft` และมีผู้ใช้แค่ ai-worker/backend ซึ่งแก้พร้อมกันในคอมมิตเดียว |
 
 > Before modifying this schema, confirm with all module owners.
 > After modifying, bump the version, update the changelog above,

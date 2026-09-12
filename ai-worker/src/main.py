@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -26,6 +27,7 @@ from src.counter import AnomalyEvent, CountEvent, VehicleCounter
 from src.detector import DetectorError, VehicleDetector
 from src.emitter import SpawnEventWriter
 from src.poster import BackendPoster
+from src.traffic_state import WindowAccumulator, window_to_dict
 
 HERE = Path(__file__).parent
 AI_WORKER_ROOT = HERE.parent
@@ -72,6 +74,17 @@ def open_csv(path: Path, columns: list[str]) -> tuple[TextIO, Any]:
     writer = csv.writer(handle)
     writer.writerow(columns)
     return handle, writer
+
+
+def open_jsonl(path: Path) -> TextIO:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path.open("w", encoding="utf-8")
+
+
+def write_jsonl(handle: TextIO, payload: dict[str, Any]) -> None:
+    """เขียนทีละบรรทัด + flush ทุกครั้ง — กด Ctrl-C กลางทางแล้วข้อมูลที่วัดมาต้องไม่หาย"""
+    handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    handle.flush()
 
 
 # ==================================================== วิดีโอ
@@ -190,6 +203,12 @@ def run(args: argparse.Namespace) -> int:
     events.open()
     poster = BackendPoster(cfg.backend_url) if cfg.send_to_backend else None
 
+    # วัดความหนาแน่น/อัตราการไหล -> traffic_state.jsonl (ยังไม่ตัดสินสถานะที่นี่
+    # การตัดสินอยู่ใน replay.py จะได้จูนเกณฑ์ใหม่โดยไม่ต้องรัน YOLO ซ้ำ)
+    windows = WindowAccumulator(cfg.zones, window_sec=cfg.window_sec)
+    state_handle = open_jsonl(OUT_DIR / "traffic_state.jsonl")
+    windows_written = 0
+
     frame_index = 0
     warned_zero = False
     warning: str | None = None
@@ -216,6 +235,12 @@ def run(args: argparse.Namespace) -> int:
                 if new_counts or new_anomalies:
                     counts_handle.flush()
                     anomalies_handle.flush()
+
+                video_time = frame_index / fps if fps > 0 else 0.0
+                window = windows.observe(video_time, detections, new_counts)
+                if window is not None:
+                    write_jsonl(state_handle, window_to_dict(window))
+                    windows_written += 1
 
                 # เตือนเร็วถ้าโซนวางผิด: รู้ตัวใน ~20 วินาที แทนที่จะรู้ตอนรันจบ
                 if (
@@ -260,10 +285,16 @@ def run(args: argparse.Namespace) -> int:
         counts_handle.close()
         anomalies_handle.close()
         events.close()
+        # ปิดหน้าต่างสุดท้ายที่ยังไม่ครบช่วง ไม่งั้นข้อมูลท้ายคลิปจะหายไปเฉย ๆ
+        last = windows.flush(frame_index / fps if fps > 0 else 0.0)
+        if last is not None:
+            write_jsonl(state_handle, window_to_dict(last))
+            windows_written += 1
+        state_handle.close()
         if poster is not None:
             poster.close()
 
-    print_summary(vehicle_counter, frame_index, events.emitted, cfg, poster)
+    print_summary(vehicle_counter, frame_index, events.emitted, cfg, poster, windows_written)
     return 0
 
 
@@ -273,6 +304,7 @@ def print_summary(
     events_written: int,
     cfg: RunConfig,
     poster: BackendPoster | None,
+    windows_written: int = 0,
 ) -> None:
     print("\n" + "=" * 60)
     print(f"ประมวลผล {frames_processed} เฟรม")
@@ -283,9 +315,11 @@ def print_summary(
     )
     if poster is not None:
         print(f"  ส่งเข้า backend: {poster.sent} สำเร็จ  |  {poster.failed} ล้มเหลว")
+    print(f"  หน้าต่างสถานะจราจร {windows_written} ช่วง (ช่วงละ {cfg.window_sec:.0f} วินาที)")
     print(f"\n  {OUT_DIR / 'counts.csv'}     รายละเอียดรถที่นับได้")
     print(f"  {OUT_DIR / 'anomalies.csv'}  รถที่ถูกปฏิเสธ พร้อมเหตุผล")
     print(f"  {OUT_DIR / 'events.jsonl'}   payload ที่จะส่งให้ Unity (draft, ไม่มี lane/speed)")
+    print(f"  {OUT_DIR / 'traffic_state.jsonl'}  ผลวัดความหนาแน่น/การไหล (ยังไม่ตัดสินสถานะ)")
     if cfg.is_auto:
         print(
             "\n  หมายเหตุ: รอบนี้ใช้โซนที่เดาให้ ตัวเลขยังไม่ควรเอาไปอ้างอิง\n"
